@@ -8,7 +8,9 @@ class DrupalJsonApi {
    */
   constructor (context, options) {
     this.ctx = context
-    this.options = options
+    this.options = Object.assign({
+      entityOptions: {}
+    }, options)
     this.api = axios.create({
       baseURL: process.static ? '' : this.options.drupalUrl
     })
@@ -303,7 +305,13 @@ class DrupalJsonApi {
  * @param {object} context
  */
 export default function NuxtDrupalJsonApi (context, inject) {
-  inject('dapi', new DrupalJsonApi(context, {
-    drupalUrl: '<%= options.drupalUrl %>'
-  }))
+  const config = {}
+  config.drupalUrl = '<%= options.drupalUrl %>'
+  <% if (options.entityOptions) { %>
+  config.entityOptions = {}
+    <% if (options.entityOptions.transform === false) { %>
+      config.entityOptions.transform = false
+    <% } %>
+  <% } %>
+  inject('dapi', new DrupalJsonApi(context, config))
 }

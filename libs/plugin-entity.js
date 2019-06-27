@@ -3,18 +3,18 @@ class DrupalJsonApiEntity {
    * Initialze our Drupal Json Api entity
    * @param {DrupalJsonApi} api
    */
-  constructor (api, apiData, options = {}) {
+  constructor (api, apiData) {
     this.config = Object.assign({
       relationshipTests: [
         new RegExp(/^field_/),
         new RegExp(/^paragraphs$/)
       ],
-      cleanEntity: (d) => this.transform(d),
+      transform: (d) => this.transform(d),
       valueProcessors: {},
       isRelationship: i => typeof i === 'object' && i && !Array.isArray(i) && i.type && i.id && i.type.indexOf('--') > 1
-    }, options)
+    }, api.options.entityOptions)
     this.api = api
-    this.res = this.config.cleanEntity(apiData)
+    this.res = this.config.transform ? this.config.transform(apiData) : apiData
     this.data = this.getData(this.res)
     this.attrs = this.res && this.res.data && this.res.data.attributes ? this.res.data.attributes : {}
     this.relationshipGroups = ['relationships']
@@ -87,13 +87,22 @@ class DrupalJsonApiEntity {
   }
 
   /**
+   * Check if the current field is on this entity.
+   * @param {string} field
+   * @return {boolean}
+   */
+  hasField (field) {
+    return this.fieldMap.has(field)
+  }
+
+  /**
    * Get a particular field name
    * @param {string} name
    * @return {mixed}
    */
   field (name) {
     if (!this.fieldMap.has(name)) {
-      throw new Error(`The field (${name}) is not part of the entity (${this.entity})`)
+      return null
     }
     return this.getPath(this.fieldMap.get(name))
   }
@@ -298,7 +307,7 @@ class DrupalJsonApiEntity {
     const fieldTests = [
       /^field_/,
       /^drupal_internal_[a-z]?id$/,
-      /^(label|title|status|path|paragraphs)$/
+      /^(label|title|status|path|paragraphs|thumbnail|meta|uri|filemime|filesize|filename)$/
     ]
     return Object.keys(fields)
       .filter(k => fieldTests.some(t => t.test(k)))
