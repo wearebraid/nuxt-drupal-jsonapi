@@ -98,7 +98,7 @@ async function pullRemoteSite (options, { dir }, routes) {
     location: `${dir}/${options.staticApiDirectory}`,
     clean: false
   })
-  new Logger([spider, extractor]) // eslint-disable-line
+  new Logger([spider, extractor], { verbosity: 2 }) // eslint-disable-line
 
   // Start the spider adding each json:api path
   await new Promise((resolve, reject) => {
