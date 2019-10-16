@@ -53,6 +53,14 @@ class DrupalJsonApiEntity {
   }
 
   /**
+   * Get the uuid of a particular entity.
+   * @return {string} uuid
+   */
+  get uuid () {
+    return this.res.data.id
+  }
+
+  /**
    * Get the name of this bundle type.
    * @param {string} name
    */

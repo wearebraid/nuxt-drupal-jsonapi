@@ -9,10 +9,12 @@ class DrupalJsonApi {
   constructor (context, options) {
     this.ctx = context
     this.options = Object.assign({
-      entityOptions: {}
+      entityOptions: {},
+      aliasPrefix: ''
     }, options)
+    this.isGenerating = process.static && typeof window === 'undefined'
     this.api = axios.create({
-      baseURL: process.static ? '' : this.options.drupalUrl
+      baseURL: process.static ? (this.isGenerating ? 'http://localhost:8080/api' : '/api') : this.options.drupalUrl
     })
     this.pending = new Set()
     this.cache = new Map()
@@ -61,19 +63,55 @@ class DrupalJsonApi {
   }
 
   /**
+   * Fetch the requested data from the local filesystem.
+   * @param {object} lookup
+   * @return {Promise}
+   */
+  getFromLocal (lookup) {
+    if (lookup.slug && (!this.isLookupComplete(lookup))) {
+      return this.getFromLocalBySlug(lookup)
+    }
+    if (this.isLookupComplete(lookup)) {
+      return this.fromApi(this.endpoint(lookup))
+    }
+    throw new Error('Incomplete local lookup:', lookup)
+  }
+
+  /**
    * Fetch the requested data off the live server.
    * @param {object} lookup
    * @return {Promise}
    */
-  getFromServer (lookup, depth) {
-    if (lookup.slug && (!this.isServerLookupComplete(lookup))) {
+  getFromServer (lookup) {
+    if (lookup.slug && (!this.isLookupComplete(lookup))) {
       return this.getFromServerBySlug(lookup)
     }
-    if (this.isServerLookupComplete(lookup)) {
-      const endpoint = this.endpoint(lookup)
-      return this.fromApi(endpoint)
+    if (this.isLookupComplete(lookup)) {
+      return this.fromApi(this.endpoint(lookup))
     }
     throw new Error('Requesting Drupal entities from a live server requires the uuid, entity, and bundle.')
+  }
+
+  /**
+   * If all we have is a slug and we're local, we need to do a request to the
+   * _slugs directory to get the node.
+   *
+   * @param {object} lookup
+   * @return {Promise}
+   */
+  getFromLocalBySlug (lookup) {
+    return this.fromApi(`/_slugs${this.trimSlug(lookup.slug)}.json`)
+      .then(entity => {
+        lookup.entity = entity.entity
+        lookup.bundle = entity.bundle
+        lookup.uuid = entity.uuid
+        if (this.isLookupComplete(lookup)) {
+          return this.getFromLocal(lookup)
+        }
+      })
+      .catch(function (err) {
+        throw err
+      })
   }
 
   /**
@@ -83,13 +121,14 @@ class DrupalJsonApi {
    * @return {Promise}
    */
   getFromServerBySlug (lookup) {
-    var that = this
     return this.fromApi(this.trimSlug(lookup.slug) + '?_format=json')
-      .then(function (data) {
+      .then(data => {
         lookup.entity = 'node'
         lookup.bundle = data.type[0].target_id
         lookup.uuid = data.uuid[0].value
-        return that.getFromServer(lookup)
+        if (this.isLookupComplete(lookup)) {
+          return this.getFromServer(lookup)
+        }
       })
       .catch(function (err) {
         throw err
@@ -113,7 +152,7 @@ class DrupalJsonApi {
    * @param {object} lookup
    * @return {boolean}
    */
-  isServerLookupComplete (lookup) {
+  isLookupComplete (lookup) {
     return lookup.entity && lookup.bundle && lookup.uuid
   }
 
@@ -159,6 +198,10 @@ class DrupalJsonApi {
    * @return {Promise}
    */
   slug (slug) {
+    const isNodeRequest = /^\/node\/\d+$/
+    if (this.options.aliasPrefix && !this.isGenerating && !isNodeRequest.test(slug)) {
+      slug = `${this.trimSlug(this.options.aliasPrefix)}${this.trimSlug(slug)}`
+    }
     return this.getEntity({ entity: 'node', slug: slug })
   }
 
@@ -168,7 +211,7 @@ class DrupalJsonApi {
    * @return {Promise}
    */
   alias (slug) {
-    return this.getEntity({ entity: 'node', slug: slug })
+    return this.slug(slug)
   }
 
   /**
@@ -312,6 +355,9 @@ export default function NuxtDrupalJsonApi (context, inject) {
     <% if (options.entityOptions.transform === false) { %>
       config.entityOptions.transform = false
     <% } %>
+  <% } %>
+  <% if (options.aliasPrefix) { %>
+    config.aliasPrefix = '<%= options.aliasPrefix %>'
   <% } %>
   inject('dapi', new DrupalJsonApi(context, config))
 }
