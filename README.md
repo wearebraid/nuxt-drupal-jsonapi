@@ -24,3 +24,18 @@ json:api, the following modules must be enabled:
 
 - [JSON:API](https://www.drupal.org/project/jsonapi)
 - [RESTful Web Services](https://www.drupal.org/docs/8/core/modules/rest/overview) (with node entity turned on at a minimum, consider using [REST UI](https://www.drupal.org/project/restui) to do this)
+
+## Configuration
+
+To configure the nuxt module, provide the `drupalUrl`.
+
+```json
+modules: [
+  ['nuxt-drupal-jsonapi', {
+    drupalUrl: 'https://example.drupal.org'
+  }]
+]
+```
+
+You can also pass an `aliasPrefix` option which will prefix every slug request
+to drupal with it's value, this is not typically needed.
