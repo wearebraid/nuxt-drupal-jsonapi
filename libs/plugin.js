@@ -1,5 +1,6 @@
 import axios from 'axios'
 import DrupalJsonApiEntity from './DrupalJsonApiEntity'
+import apiError from './DrupalJsonApiEntityError'
 
 class DrupalJsonApi {
   /**
@@ -25,17 +26,25 @@ class DrupalJsonApi {
    * @param {string} endpoint
    * @return {Promise}
    */
-  fromApi (endpoint) {
+  async fromApi (endpoint) {
     if (this.isCached(endpoint)) {
       return Promise.resolve(this.getCached(endpoint))
     }
     this.pending.add(endpoint)
-    return this.api.get(endpoint).then(res => {
-      const d = this.isEntity(res) ? (new DrupalJsonApiEntity(this, res.data)) : res.data
-      this.setCache(endpoint, d)
-      this.pending.delete(endpoint)
-      return d
-    })
+    let res = false
+    try {
+      res = await this.api.get(endpoint)
+    } catch (err) {
+      if (this.isEntity(err.response)) {
+        res = err.response
+      } else {
+        res = apiError
+      }
+    }
+    const d = this.isEntity(res) ? (new DrupalJsonApiEntity(this, res.data)) : res.data
+    this.setCache(endpoint, d)
+    this.pending.delete(endpoint)
+    return d
   }
 
   /**

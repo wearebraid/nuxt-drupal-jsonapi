@@ -14,6 +14,7 @@ class DrupalJsonApiEntity {
       isRelationship: i => typeof i === 'object' && i && !Array.isArray(i) && i.type && i.id && i.type.indexOf('--') > 1
     }, api.options.entityOptions)
     this.api = api
+    apiData = this.isErrorResponse(apiData) ? this.shapeError(apiData) : apiData
     this.res = this.config.transform ? this.config.transform(apiData) : apiData
     this.data = this.getData(this.res)
     this.attrs = this.res && this.res.data && this.res.data.attributes ? this.res.data.attributes : {}
@@ -66,6 +67,13 @@ class DrupalJsonApiEntity {
    */
   get bundle () {
     return this.res.data.type.split('--')[1]
+  }
+
+  /**
+   * Checks if the current entity is an error.
+   */
+  get isError () {
+    return this.entity === 'error'
   }
 
   /**
@@ -125,7 +133,11 @@ class DrupalJsonApiEntity {
     if (typeof this.config.valueProcessors[field] === 'function') {
       return this.config.valueProcessors[field](field)
     }
-    return this.getFieldValue(field)
+    const x = this.getFieldValue(field)
+    if (name === 'field_reference_pages') {
+      console.log('singleValue', x)
+    }
+    return x
   }
 
   /**
@@ -139,7 +151,7 @@ class DrupalJsonApiEntity {
       fields = fields.data
     }
     if (Array.isArray(fields)) {
-      return fields.map((field, index) => this.getFieldValue(field))
+      return fields.map((field, index) => this.getFieldValue(field)).filter(field => !!field)
     }
     return fields
   }
@@ -164,13 +176,14 @@ class DrupalJsonApiEntity {
     }
     if (this.config.isRelationship(value)) {
       const [ entity, bundle ] = value.type.split('--')
+      const relationship = this.api.getRelationship(value)
       if (entity === 'paragraph' && bundle === 'from_library') {
         // @todo worth discussing this shorthand, but it seems like most devs
         // would not understand the internal entity structure for the entity
         // library and this creates a much more usable theming api.
-        return this.api.getRelationship(value).value('field_reusable_paragraph').value('paragraphs')
+        return relationship.isError ? false : relationship.value('field_reusable_paragraph').value('paragraphs')
       }
-      return this.api.getRelationship(value)
+      return relationship.isError ? false : relationship
     }
     return value
   }
@@ -266,6 +279,29 @@ class DrupalJsonApiEntity {
   }
 
   /**
+   * Return true if this is an instance of an error entity.
+   * @return {boolean}
+   */
+  isErrorResponse (res) {
+    return res && Array.isArray(res.errors) && res.errors.length && !res.data
+  }
+
+  /**
+   * Given a particular object known to be an error, shape it.
+   * @param {object} res
+   */
+  shapeError (res) {
+    const status = Array.isArray(res.errors) ? res.errors[0].status : 520
+    return Object.assign({}, res, {
+      data: {
+        type: `error--${status}`,
+        id: 'missing',
+        attributes: {}
+      }
+    })
+  }
+
+  /**
    * Transform this entity into a simple object that can re-constitute this
    * entity down the road.
    */
@@ -317,7 +353,7 @@ class DrupalJsonApiEntity {
       /^drupal_internal_[a-z]?id$/,
       /^(label|title|status|path|paragraphs|thumbnail|meta|uri|filemime|filesize|filename)$/
     ]
-    return Object.keys(fields)
+    return !fields ? {} : Object.keys(fields)
       .filter(k => fieldTests.some(t => t.test(k)))
       .reduce((group, field) => Object.assign(group, { [ field ]: this.cleanField(fields[field]) }), {})
   }
