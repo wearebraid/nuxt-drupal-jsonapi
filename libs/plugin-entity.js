@@ -77,6 +77,13 @@ class DrupalJsonApiEntity {
   }
 
   /**
+   * Returns an object for use in the nuxt error() function (if this is an error)
+   */
+  pageError () {
+    return this.isError ? { statusCode: this.bundle, message: (this.res.errors[0].title || 'Unknown Error') } : {}
+  }
+
+  /**
    * Get the data from our raw input.
    * @param {object}
    * @return {object}

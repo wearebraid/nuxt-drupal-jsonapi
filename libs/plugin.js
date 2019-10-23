@@ -37,8 +37,12 @@ class DrupalJsonApi {
     } catch (err) {
       if (this.isEntity(err.response)) {
         res = err.response
+      } else if (err.response.status === 403) {
+        res = apiError(403, 'Not Authorized')
+      } else if (err.response.status === 404) {
+        res = apiError(404, 'Not Found')
       } else {
-        res = apiError
+        res = apiError()
       }
     }
     const d = this.isEntity(res) ? (new DrupalJsonApiEntity(this, res.data)) : res.data
@@ -132,9 +136,13 @@ class DrupalJsonApi {
   getFromServerBySlug (lookup) {
     return this.fromApi(this.trimSlug(lookup.slug) + '?_format=json')
       .then(data => {
-        lookup.entity = 'node'
-        lookup.bundle = data.type[0].target_id
-        lookup.uuid = data.uuid[0].value
+        if (data instanceof DrupalJsonApiEntity) {
+          return data
+        } else {
+          lookup.entity = 'node'
+          lookup.bundle = data.type[0].target_id
+          lookup.uuid = data.uuid[0].value
+        }
         if (this.isLookupComplete(lookup)) {
           return this.getFromServer(lookup)
         }
@@ -206,12 +214,13 @@ class DrupalJsonApi {
    * @param {string|int} identifier
    * @return {Promise}
    */
-  slug (slug) {
+  slug (slug, throwOnError = true) {
     const isNodeRequest = /^\/node\/\d+$/
     if (this.options.aliasPrefix && !this.isGenerating && !isNodeRequest.test(slug)) {
       slug = `${this.trimSlug(this.options.aliasPrefix)}${this.trimSlug(slug)}`
     }
-    return this.getEntity({ entity: 'node', slug: slug })
+    const entity = this.getEntity({ entity: 'node', slug: slug })
+    return this.throwOnError ? this.throwOnError(entity) : entity
   }
 
   /**
@@ -349,6 +358,16 @@ class DrupalJsonApi {
    */
   toEntity (data) {
     return this.entify(data)
+  }
+
+  /**
+   * Handle throwing page level errors.
+   * @param {Promise|entity}
+   * @return {Promise}
+   */
+  async throwOnError (willBeEntity) {
+    const entity = (willBeEntity instanceof Promise) ? await willBeEntity : willBeEntity
+    return (entity.isError) ? this.ctx.error(entity.pageError()) : entity
   }
 }
 
