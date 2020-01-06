@@ -29,7 +29,11 @@ module.exports = function NuxtDrupalJsonApi (moduleOptions) {
   }
 
   // make sure that we have a valid transformers file path before proceeding
-  const transformersFilePath = fs.existsSync(options.transformers)
+  const transformersFileExists = fs.existsSync(options.transformers)
+  if (!transformersFileExists && options.transformers !== false) {
+    throw new Error(`nuxt-drupal-jsonapi: provided transformers file path (${options.transformers}) in nuxt.config.js does not exist`)
+  }
+  const transformersFilePath = transformersFileExists
     ? options.transformers
     : path.resolve(__dirname, 'plugin-transformers.js')
 
