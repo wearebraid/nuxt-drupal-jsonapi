@@ -59,7 +59,7 @@ module.exports = function NuxtDrupalJsonApi (moduleOptions) {
   // Adds transformers object as template
   this.addTemplate({
     src: transformersFilePath,
-    fileName: 'DrupalJsonApiTransforms.js'
+    fileName: 'DrupalJsonApiTransformers.js'
   })
 
   var generateOptions = {

@@ -1,5 +1,6 @@
 import axios from 'axios'
 import DrupalJsonApiEntity from './DrupalJsonApiEntity'
+import DrupalJsonApiTransformers from './DrupalJsonApiTransformers'
 import apiError from './DrupalJsonApiEntityError'
 
 class DrupalJsonApi {
@@ -386,6 +387,9 @@ export default function NuxtDrupalJsonApi (context, inject) {
   <% } %>
   <% if (options.aliasPrefix) { %>
     config.aliasPrefix = '<%= options.aliasPrefix %>'
+  <% } %>
+  <% if (options.transformers) { %>
+    config.transformers = DrupalJsonApiTransformers
   <% } %>
   inject('dapi', new DrupalJsonApi(context, config))
 }

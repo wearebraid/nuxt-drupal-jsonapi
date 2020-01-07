@@ -336,6 +336,14 @@ class DrupalJsonApiEntity {
   }
 
   /**
+   * Applies matching transforms to entity to create props-ready data
+   */
+  toProps () {
+    // if there is a matching transformer, run it, otherwise return the original entity
+    return this.api.options.transformers[this.bundle] ? this.api.options.transformers[this.bundle](this) : this
+  }
+
+  /**
    * Given a full json:api entity object, remove all unnecessary data.
    * @param {object} res
    */
