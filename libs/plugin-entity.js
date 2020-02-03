@@ -338,9 +338,12 @@ class DrupalJsonApiEntity {
   /**
    * Applies matching transforms to entity to create props-ready data
    */
-  toProps () {
+  toProps (payload = false) {
     // if there is a matching transformer, run it, otherwise return the original entity
-    return this.api.options.transformers[this.bundle] ? this.api.options.transformers[this.bundle](this) : this
+    // if there's supplied payload, include it as a secondary argument in the transformer call.
+    return this.api.options.transformers[this.bundle]
+      ? this.api.options.transformers[this.bundle](this, payload)
+      : this
   }
 
   /**
