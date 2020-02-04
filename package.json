@@ -1,6 +1,7 @@
 {
-  "name": "nuxt-drupal-jsonapi",
+  "name": "@braid/nuxt-drupal-jsonapi",
   "version": "0.5.0",
+  "public": true,
   "description": "A nuxt module for interfacing directly with the output of Drupal's native JSON:API.",
   "main": "libs/module.js",
   "scripts": {
