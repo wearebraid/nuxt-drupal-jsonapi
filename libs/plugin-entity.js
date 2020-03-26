@@ -322,8 +322,8 @@ class DrupalJsonApiEntity {
   toJSON () {
     return JSON.stringify({
       __NUXT_SERIALIZED__: {
-        res: this.res
-        // cache: this.api.cacheToObject()
+        res: this.res,
+        cache: this.api.cacheToObject()
       }
     })
   }
