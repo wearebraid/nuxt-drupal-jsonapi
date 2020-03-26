@@ -46,7 +46,22 @@ class DrupalJsonApi {
         res = apiError()
       }
     }
-    const d = this.isEntity(res) ? (new DrupalJsonApiEntity(this, res.data)) : res.data
+
+    let d
+    if (Array.isArray(res.data.data)) {
+      if (this.isEntity(res)) {
+        d = res.data.data.map(item => {
+          console.log(item)
+          return new DrupalJsonApiEntity(this, item)
+        })
+        // console.log(d)
+      } else {
+        d = res.data
+      }
+      d = this.isEntity(res) ? (new DrupalJsonApiEntity(this, res.data)) : res.data
+    } else {
+      d = this.isEntity(res) ? (new DrupalJsonApiEntity(this, res.data)) : res.data
+    }
     this.setCache(endpoint, d)
     this.pending.delete(endpoint)
     return d
@@ -135,7 +150,11 @@ class DrupalJsonApi {
    * @return {Promise}
    */
   getFromServerBySlug (lookup) {
-    return this.fromApi(this.trimSlug(lookup.slug) + '?_format=json')
+    let formatString = ''
+    if (lookup.format !== false) {
+      formatString = lookup.format ? '?_format=' + lookup.format : '?_format=json'
+    }
+    return this.fromApi(this.trimSlug(lookup.slug) + formatString)
       .then(data => {
         if (data instanceof DrupalJsonApiEntity) {
           return data
@@ -211,7 +230,7 @@ class DrupalJsonApi {
   }
 
   /**
-   * Find a given node by an alias.
+   * Find a given node by a slug
    * @param {string|int} identifier
    * @return {Promise}
    */
@@ -221,6 +240,20 @@ class DrupalJsonApi {
       slug = `${this.trimSlug(this.options.aliasPrefix)}${this.trimSlug(slug)}`
     }
     const entity = this.getEntity({ entity: 'node', slug: slug })
+    return this.throwOnError ? this.throwOnError(entity) : entity
+  }
+
+  /**
+   * Find a given menu by slug.
+   * @param {string|int} identifier
+   * @return {Promise}
+   */
+  menu (slug, throwOnError = true) {
+    const entity = this.getEntity({
+      entity: 'menu_link_content',
+      slug: '/jsonapi/menu_link_content/' + slug,
+      format: false
+    })
     return this.throwOnError ? this.throwOnError(entity) : entity
   }
 
@@ -348,6 +381,8 @@ class DrupalJsonApi {
       this.restoreCache(data.__NUXT_SERIALIZED__.cache)
       return new DrupalJsonApiEntity(this, data.__NUXT_SERIALIZED__.res)
     } else if (data && data.data && data.data.type) {
+      return new DrupalJsonApiEntity(this, data)
+    } else if (data && data.type ) {
       return new DrupalJsonApiEntity(this, data)
     }
     throw new Error ('DrupalJsonApi was unable to create an entity from given data')
