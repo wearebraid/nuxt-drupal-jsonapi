@@ -51,14 +51,11 @@ class DrupalJsonApi {
     if (Array.isArray(res.data.data)) {
       if (this.isEntity(res)) {
         d = res.data.data.map(item => {
-          console.log(item)
           return new DrupalJsonApiEntity(this, item)
         })
-        // console.log(d)
       } else {
         d = res.data
       }
-      d = this.isEntity(res) ? (new DrupalJsonApiEntity(this, res.data)) : res.data
     } else {
       d = this.isEntity(res) ? (new DrupalJsonApiEntity(this, res.data)) : res.data
     }
@@ -86,6 +83,12 @@ class DrupalJsonApi {
     return result.then(async entity => {
       if (entity instanceof DrupalJsonApiEntity) {
         await entity.loadRelationships(depth)
+      } else if (Array.isArray(entity)) {
+        await entity.map(async (e) => {
+          if (e instanceof DrupalJsonApiEntity) {
+            return await e.loadRelationships(depth)
+          }
+        })
       }
       return entity
     })
@@ -157,6 +160,8 @@ class DrupalJsonApi {
     return this.fromApi(this.trimSlug(lookup.slug) + formatString)
       .then(data => {
         if (data instanceof DrupalJsonApiEntity) {
+          return data
+        } else if (Array.isArray(data)) {
           return data
         } else {
           lookup.entity = 'node'
@@ -248,13 +253,12 @@ class DrupalJsonApi {
    * @param {string|int} identifier
    * @return {Promise}
    */
-  menu (slug, throwOnError = true) {
-    const entity = this.getEntity({
+  menu (slug) {
+    return this.getEntity({
       entity: 'menu_link_content',
       slug: '/jsonapi/menu_link_content/' + slug,
       format: false
     })
-    return this.throwOnError ? this.throwOnError(entity) : entity
   }
 
   /**
@@ -382,10 +386,16 @@ class DrupalJsonApi {
       return new DrupalJsonApiEntity(this, data.__NUXT_SERIALIZED__.res)
     } else if (data && data.data && data.data.type) {
       return new DrupalJsonApiEntity(this, data)
-    } else if (data && data.type ) {
-      return new DrupalJsonApiEntity(this, data)
     }
     throw new Error ('DrupalJsonApi was unable to create an entity from given data')
+  }
+
+  /**
+   * Re-constitute an array of objects from a json decode.
+   * @param {Object} data
+   */
+  entifyAll (data) {
+    return data.map(item => this.entify(item))
   }
 
   /**

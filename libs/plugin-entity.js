@@ -17,11 +17,11 @@ class DrupalJsonApiEntity {
     apiData = this.isErrorResponse(apiData) ? this.shapeError(apiData) : apiData
     this.res = this.config.transform ? this.config.transform(apiData) : apiData
     this.data = this.getData(this.res)
-    this.attrs = this.res && this.res.data && this.res.data.attributes ? this.res.data.attributes
-      : this.res && this.res.attributes ? this.res.attributes : {}
+    this.attrs = this.res && this.res.data && this.res.data.attributes ? this.res.data.attributes : {}
     this.relationshipGroups = ['relationships']
     this._fieldMap = new Map()
     this._id = null
+    console.log(this)
   }
 
   /**
@@ -43,13 +43,7 @@ class DrupalJsonApiEntity {
    * @param {string} name
    */
   get entity () {
-    if (this.res.data && this.res.data.type) {
-      return this.res.data.type.split('--')[0]
-    }
-    if (this.res && this.res.type) {
-      return this.res.type.split('--')[0]
-    }
-    return 'unknown'
+    return this.res.data.type.split('--')[0]
   }
 
   /**
@@ -363,13 +357,11 @@ class DrupalJsonApiEntity {
     if (res.data && res.data.links) {
       delete res.data.links
     }
-    if (res.data) {
-      ['attributes', 'relationships']
-        .forEach(fieldSet => Object.assign(res.data, { [ fieldSet ]: this.cleanFields(res.data[fieldSet]) }))
-    } else {
-      ['attributes', 'relationships']
-        .forEach(fieldSet => Object.assign(res, { [ fieldSet ]: this.cleanFields(res[fieldSet]) }))
+    if (!res.data && res.type) {
+      res = { data: res }
     }
+    ['attributes', 'relationships']
+      .forEach(fieldSet => Object.assign(res.data, { [ fieldSet ]: this.cleanFields(res.data[fieldSet]) }))
     return res
   }
 
