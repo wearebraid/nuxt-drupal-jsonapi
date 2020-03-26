@@ -21,7 +21,6 @@ class DrupalJsonApiEntity {
     this.relationshipGroups = ['relationships']
     this._fieldMap = new Map()
     this._id = null
-    console.log(this)
   }
 
   /**
@@ -323,8 +322,8 @@ class DrupalJsonApiEntity {
   toJSON () {
     return JSON.stringify({
       __NUXT_SERIALIZED__: {
-        res: this.res,
-        cache: this.api.cacheToObject()
+        res: this.res
+        // cache: this.api.cacheToObject()
       }
     })
   }
