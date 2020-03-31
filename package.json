@@ -1,6 +1,7 @@
 {
-  "name": "nuxt-drupal-jsonapi",
-  "version": "0.4.0",
+  "name": "@braid/nuxt-drupal-jsonapi",
+  "version": "0.5.1",
+  "public": true,
   "description": "A nuxt module for interfacing directly with the output of Drupal's native JSON:API.",
   "main": "libs/module.js",
   "scripts": {
@@ -23,19 +24,19 @@
   },
   "homepage": "https://github.com/wearebraid/nuxt-drupal-jsonapi#readme",
   "dependencies": {
-    "axios": "^0.19.0",
+    "axios": "^0.19.2",
     "clone-deep": "^4.0.1",
     "drupal-jsonapi-extractor": "^1.3.0",
     "node-static": "^0.7.11",
     "stoppable": "^1.1.0"
   },
   "devDependencies": {
-    "babel-eslint": "^10.0.2",
-    "eslint": "^6.0.0",
+    "babel-eslint": "^10.1.0",
+    "eslint": "^6.8.0",
     "eslint-config-standard": "^12.0.0",
-    "eslint-plugin-import": "^2.17.3",
-    "eslint-plugin-node": "^9.1.0",
-    "eslint-plugin-promise": "^4.1.1",
-    "eslint-plugin-standard": "^4.0.0"
+    "eslint-plugin-import": "^2.20.2",
+    "eslint-plugin-node": "^9.2.0",
+    "eslint-plugin-promise": "^4.2.1",
+    "eslint-plugin-standard": "^4.0.1"
   }
 }

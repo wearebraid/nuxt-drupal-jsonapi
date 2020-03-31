@@ -114,8 +114,8 @@ class DrupalJsonApiEntity {
    * @param {string} field
    * @return {boolean}
    */
-  hasField (field) {
-    return this.fieldMap.has(field)
+  hasField (name, prefix = 'field_') {
+    return this.fieldMap.has(prefix + name)
   }
 
   /**
@@ -123,11 +123,11 @@ class DrupalJsonApiEntity {
    * @param {string} name
    * @return {mixed}
    */
-  field (name) {
-    if (!this.fieldMap.has(name)) {
+  field (field, prefix = 'field') {
+    if (!this.fieldMap.has(prefix + field)) {
       return null
     }
-    return this.getPath(this.fieldMap.get(name))
+    return this.getPath(this.fieldMap.get(prefix + field))
   }
 
   /**
@@ -135,8 +135,8 @@ class DrupalJsonApiEntity {
    * @param {string} name
    * @return {mixed}
    */
-  value (name) {
-    let field = this.field(name)
+  value (name, prefix = 'field_') {
+    let field = this.field(name, prefix)
     if (typeof this.config.valueProcessors[field] === 'function') {
       return this.config.valueProcessors[field](field)
     }
@@ -152,8 +152,8 @@ class DrupalJsonApiEntity {
    * @param {string} name
    * @return {mixed}
    */
-  allValues (name) {
-    let fields = this.field(name)
+  allValues (name, prefix = 'field_') {
+    let fields = this.field(name, prefix)
     if (!Array.isArray(fields) && Array.isArray(fields.data)) {
       fields = fields.data
     }
@@ -333,6 +333,17 @@ class DrupalJsonApiEntity {
    */
   toString () {
     return `Drupal '${this.entity}' entity of bundle '${this.bundle}'. Has fields: ${Array.from(this.fieldMap.keys()).join(', ')}.`
+  }
+
+  /**
+   * Applies matching transforms to entity to create props-ready data
+   */
+  toProps (payload = false) {
+    // if there is a matching transformer, run it, otherwise return the original entity
+    // if there's supplied payload, include it as a secondary argument in the transformer call.
+    return this.api.options.transformers[this.bundle]
+      ? this.api.options.transformers[this.bundle](this, payload)
+      : this
   }
 
   /**

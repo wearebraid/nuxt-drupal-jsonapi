@@ -1,4 +1,5 @@
 var path = require('path')
+var fs = require('fs')
 var axios = require('axios')
 var staticServer = require('node-static')
 var stoppable = require('stoppable')
@@ -18,13 +19,23 @@ var remainingRoutes = []
  */
 module.exports = function NuxtDrupalJsonApi (moduleOptions) {
   var options = Object.assign({
-    staticApiDirectory: 'api'
+    staticApiDirectory: 'api',
+    transformers: false
   }, this.options.drupalJsonApi, moduleOptions)
 
   // Make sure we have a valid drupal url before proceeding.
   if (!options.drupalUrl) {
     throw new Error('nuxt-drupal-jsonapi requires a `drupalUrl` option to be set in nuxt.config.js')
   }
+
+  // make sure that we have a valid transformers file path before proceeding
+  // const transformersFileExists = fs.existsSync(options.transformers)
+  // if (!transformersFileExists && options.transformers !== false) {
+  //   throw new Error(`nuxt-drupal-jsonapi: provided transformers file path (${options.transformers}) in nuxt.config.js does not exist`)
+  // }
+  const transformersFilePath = options.transformers
+    ? options.transformers
+    : path.resolve(__dirname, 'plugin-transformers.js')
 
   // Add the drupal json api plugin.
   this.addPlugin({
@@ -43,6 +54,12 @@ module.exports = function NuxtDrupalJsonApi (moduleOptions) {
   this.addTemplate({
     src: path.resolve(__dirname, 'plugin-entity-error.js'),
     fileName: 'DrupalJsonApiEntityError.js'
+  })
+
+  // Adds transformers object as template
+  this.addTemplate({
+    src: transformersFilePath,
+    fileName: 'DrupalJsonApiTransformers.js'
   })
 
   var generateOptions = {
