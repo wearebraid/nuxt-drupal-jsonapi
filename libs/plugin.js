@@ -61,6 +61,14 @@ class DrupalJsonApi {
   }
 
   /**
+   * Get a full bundle and return the results.
+   */
+  getBundle (lookup, depth = Infinity) {
+    lookup.isBundle = true
+    return this.getEntity(lookup)
+  }
+
+  /**
    *
    * @param {string} entity
    * @param {object} lookup
@@ -171,7 +179,7 @@ class DrupalJsonApi {
    * @return {boolean}
    */
   isLookupComplete (lookup) {
-    return lookup.entity && lookup.bundle && lookup.uuid
+    return lookup.entity && lookup.bundle && (lookup.uuid || lookup.isBundle)
   }
 
   /**
@@ -196,9 +204,13 @@ class DrupalJsonApi {
    */
   endpoint (lookup) {
     if (!process.static) {
-      return `/jsonapi/${lookup.entity}/${lookup.bundle}/${lookup.uuid}`
+      return lookup.isBundle
+        ? `/jsonapi/${lookup.entity}/${lookup.bundle}`
+        : `/jsonapi/${lookup.entity}/${lookup.bundle}/${lookup.uuid}`
     }
-    return `/_resources/${lookup.entity}/${lookup.bundle}/${lookup.uuid}.json`
+    return lookup.isBundle
+      ? `/_resources/${lookup.entity}/${lookup.bundle}/index.json`
+      : `/_resources/${lookup.entity}/${lookup.bundle}/${lookup.uuid}.json`
   }
 
   /**
@@ -208,6 +220,23 @@ class DrupalJsonApi {
    */
   node (identifier) {
     return this.getEntity({ entity: 'node', identifier: identifier })
+  }
+
+  /**
+   * Given a particular menu, return all sub-objects
+   * @param {string} name machine name of the menu
+   */
+  menu (name) {
+    return this.getBundle({ entity: 'menu_link_content', bundle: name })
+  }
+
+  /**
+   * Get a specific bundle.
+   * @param {string} entity
+   * @param {string} name
+   */
+  bundle (entity, name) {
+    return this.getBundle({ entity: entity, name: name })
   }
 
   /**

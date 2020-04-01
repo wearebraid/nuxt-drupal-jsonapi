@@ -20,6 +20,7 @@ class DrupalJsonApiEntity {
     this.attrs = this.res && this.res.data && this.res.data.attributes ? this.res.data.attributes : {}
     this.relationshipGroups = ['relationships']
     this._fieldMap = new Map()
+    this._entities = []
     this._id = null
   }
 
@@ -74,6 +75,16 @@ class DrupalJsonApiEntity {
    */
   get isError () {
     return this.entity === 'error'
+  }
+
+  /**
+   * If this entity is a collection (probably a bundle), it returns sub-entities.
+   */
+  get entities () {
+    if (this.isCollection() && !this._entities.length) {
+      this._entities = this.data.map(item => this.api.entify({ data: item }))
+    }
+    return this._entities
   }
 
   /**
@@ -141,9 +152,6 @@ class DrupalJsonApiEntity {
       return this.config.valueProcessors[field](field)
     }
     const x = this.getFieldValue(field)
-    if (name === 'field_reference_pages') {
-      console.log('singleValue', x)
-    }
     return x
   }
 

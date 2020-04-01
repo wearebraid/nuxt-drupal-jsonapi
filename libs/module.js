@@ -126,11 +126,11 @@ async function pullRemoteSite (options, { dir }, routes) {
   // Start the spider adding each json:api path
   await new Promise((resolve, reject) => {
     spider.observe('crawl-complete', () => resolve())
-    manifest.jsonApi.map(nodePath => {
+    manifest.jsonApi.map(jsonPath => {
       try {
-        spider.crawl(nodePath)
+        spider.crawl(jsonPath)
       } catch (err) {
-        console.log('\x1b[31m%s\x1b[0m', 'Failed to crawl ' + nodePath)
+        console.log('\x1b[31m%s\x1b[0m', 'Failed to crawl ' + jsonPath)
         reject(err)
       }
     })
