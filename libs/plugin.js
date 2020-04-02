@@ -231,6 +231,18 @@ class DrupalJsonApi {
   }
 
   /**
+   * Return a pre-serialized menu (not an entity).
+   * @param {string} name
+   */
+  fetchMenu (name) {
+    return this.menu(name).then(entity => entity.serializable())
+  }
+
+  fauxAsync () {
+    return new Promise(resolve => setTimeout(() => resolve({ fauxAsync: 'is working' }), 100))
+  }
+
+  /**
    * Get a specific bundle.
    * @param {string} entity
    * @param {string} name
@@ -376,7 +388,7 @@ class DrupalJsonApi {
     if (data.__NUXT_SERIALIZED__) {
       this.restoreCache(data.__NUXT_SERIALIZED__.cache)
       return new DrupalJsonApiEntity(this, data.__NUXT_SERIALIZED__.res)
-    } else if (data && data.data && data.data.type) {
+    } else if (data && data.data && (Array.isArray(data.data) || data.data.type)) {
       return new DrupalJsonApiEntity(this, data)
     }
     throw new Error ('DrupalJsonApi was unable to create an entity from given data')

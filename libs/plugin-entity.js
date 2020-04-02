@@ -241,9 +241,12 @@ class DrupalJsonApiEntity {
    * Load all the sub relationships of this entity.
    */
   async loadRelationships (depth) {
-    return Promise.all(this.relationshipGroups.reduce((promises, group) => {
-      return promises.concat(this.loadRelationshipGroup(group, depth))
-    }, []))
+    return Promise.all(
+      this.relationshipGroups.reduce((promises, group) => {
+        return promises.concat(this.loadRelationshipGroup(group, depth))
+      }, [])
+        .concat(this.isCollection ? this.entities.map(entity => entity.loadRelationships()) : [])
+    )
   }
 
   /**
@@ -328,12 +331,19 @@ class DrupalJsonApiEntity {
    * Allow this component to be serialized.
    */
   toJSON () {
-    return JSON.stringify({
+    return JSON.stringify(this.serializable())
+  }
+
+  /**
+   * Produce an object that can be serialized, and re-constituted.
+   */
+  serializable () {
+    return {
       __NUXT_SERIALIZED__: {
         res: this.res,
         cache: this.api.cacheToObject()
       }
-    })
+    }
   }
 
   /**
