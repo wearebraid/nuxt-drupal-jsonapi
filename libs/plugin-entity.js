@@ -359,8 +359,9 @@ class DrupalJsonApiEntity {
   toProps (payload = false) {
     // if there is a matching transformer, run it, otherwise return the original entity
     // if there's supplied payload, include it as a secondary argument in the transformer call.
-    return this.api.options.transformers[this.bundle]
-      ? this.api.options.transformers[this.bundle](this, payload)
+    const safeBundleName = this.bundle.replace(/-/g, '_')
+    return this.api.options.transformers[safeBundleName]
+      ? this.api.options.transformers[safeBundleName](this, payload)
       : this
   }
 
@@ -387,7 +388,7 @@ class DrupalJsonApiEntity {
     const fieldTests = [
       /^field_/,
       /^drupal_internal_[a-z]?id$/,
-      /^(label|title|status|path|paragraphs|thumbnail|meta|uri|filemime|filesize|filename)$/
+      /^(label|title|status|path|paragraphs|thumbnail|meta|uri|filemime|filesize|filename|weight|link|enabled|parent)$/
     ]
     return !fields ? {} : Object.keys(fields)
       .filter(k => fieldTests.some(t => t.test(k)))
