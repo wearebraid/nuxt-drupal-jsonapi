@@ -196,7 +196,7 @@ class DrupalJsonApiEntity {
         // @todo worth discussing this shorthand, but it seems like most devs
         // would not understand the internal entity structure for the entity
         // library and this creates a much more usable theming api.
-        return relationship.isError ? false : relationship.value('field_reusable_paragraph').value('paragraphs')
+        return relationship.isError ? false : relationship.value('reusable_paragraph').value('paragraphs', '')
       }
       return relationship.isError ? false : relationship
     }
