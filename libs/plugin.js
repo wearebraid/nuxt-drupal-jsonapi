@@ -235,7 +235,8 @@ class DrupalJsonApi {
    * @param {string} name
    */
   fetchMenu (name) {
-    return this.menu(name).then(entity => entity.serializable())
+    const menuDapi = new DrupalJsonApi(this.context, this.options)
+    return menuDapi.menu(name).then(entity => entity.serializable())
   }
 
   fauxAsync () {
