@@ -43,7 +43,10 @@ class DrupalJsonApiEntity {
    * @param {string} name
    */
   get entity () {
-    return this.res.data.type.split('--')[0]
+    if (this.res && this.res.data && this.res.data.type) {
+      return this.res.data.type.split('--')[0]
+    }
+    return 'UNKNOWN'
   }
 
   /**
@@ -67,7 +70,10 @@ class DrupalJsonApiEntity {
    * @param {string} name
    */
   get bundle () {
-    return this.res.data.type.split('--')[1]
+    if (this.res && this.res.data && this.res.data.type) {
+      return this.res.data.type.split('--')[1]
+    }
+    return 'UNKNOWN'
   }
 
   /**
