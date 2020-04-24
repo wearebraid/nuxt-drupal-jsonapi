@@ -168,11 +168,18 @@ class DrupalJsonApiEntity {
    */
   allValues (name, prefix = 'field_') {
     let fields = this.field(name, prefix)
-    if (!Array.isArray(fields) && Array.isArray(fields.data)) {
+    if (
+      fields &&
+      typeof fields === 'object' &&
+      !Array.isArray(fields) &&
+      Array.isArray(fields.data)
+    ) {
       fields = fields.data
     }
     if (Array.isArray(fields)) {
-      return fields.map((field, index) => this.getFieldValue(field)).filter(field => !!field)
+      return fields
+        .map(field => this.getFieldValue(field))
+        .filter(field => !!field && field.id !== 'missing' && !(field instanceof Promise))
     }
     return fields
   }
