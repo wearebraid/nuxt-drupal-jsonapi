@@ -44,13 +44,13 @@ module.exports = function NuxtDrupalJsonApi (moduleOptions) {
     options: options
   })
 
-  // Add our drupal "entity" object as a template
+  // Add our drupal 'entity' object as a template
   this.addTemplate({
     src: path.resolve(__dirname, 'plugin-entity.js'),
     fileName: 'DrupalJsonApiEntity.js'
   })
 
-  // Adds a drupal entity "error" object
+  // Adds a drupal entity 'error' object
   this.addTemplate({
     src: path.resolve(__dirname, 'plugin-entity-error.js'),
     fileName: 'DrupalJsonApiEntityError.js'
@@ -175,16 +175,30 @@ function startStaticServer (publicDir) {
  * @return {Promise([paths])}
  */
 async function getManifest (options) {
-  const endpoint = `${options.drupalUrl}/api/static-manifest?_format=json${options.aliasPrefix ? '&site=' + encodeURIComponent(options.aliasPrefix) : ''}`
-  try {
-    const res = await axios.get(endpoint)
-    if (res && res.data && Array.isArray(res.data.paths)) {
-      return res.data
-    }
-  } catch (err) {
-    console.log('\x1b[31m%s\x1b[0m', 'Unable to retrieve remote site manifest. It must be accessible at: ' + endpoint)
+  // const endpoint = `${options.drupalUrl}/api/static-manifest?_format=json${options.aliasPrefix ? '&site=' + encodeURIComponent(options.aliasPrefix) : ''}`
+  // try {
+  //   const res = await axios.get(endpoint)
+  //   if (res && res.data && Array.isArray(res.data.paths)) {
+  //     return res.data
+  //   }
+  // } catch (err) {
+  //   console.log('\x1b[31m%s\x1b[0m', 'Unable to retrieve remote site manifest. It must be accessible at: ' + endpoint)
+  // }
+  // return []
+  return {
+    paths: [
+      '/node/1461',
+      '/mcintire.virginia.edu/student-success/support-services'
+    ],
+    jsonApi: [
+      '/node/enterprise_landing_page/890c5507-d1b5-4a4b-ae0e-57f0a1af874a',
+      '/menu_link_content/enterprise-footer-navigation',
+      '/menu_link_content/enterprise-footer-utility-nav',
+      '/menu_link_content/enterprise-header-eyebrow-nav',
+      '/menu_link_content/enterprise-primary-navigation',
+      '/menu_link_content/enterprise-quick-info-navigation'
+    ]
   }
-  return []
 }
 
 module.exports.meta = require('../package.json')
