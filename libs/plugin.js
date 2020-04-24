@@ -126,7 +126,7 @@ class DrupalJsonApi {
       .then(entity => {
         lookup.entity = entity.entity
         lookup.bundle = entity.bundle
-        lookup.uuid = entity.uuid
+        lookup.uuid = entity.guid
         if (this.isLookupComplete(lookup)) {
           return this.getFromLocal(lookup)
         }
