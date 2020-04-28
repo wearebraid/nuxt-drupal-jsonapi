@@ -264,7 +264,7 @@ class DrupalJsonApiEntity {
   /**
    * Load all the sub relationships of this entity.
    */
-  async loadRelationships (depth) {
+  loadRelationships (depth) {
     return Promise.all(
       this.relationshipGroups.reduce((promises, group) => {
         return promises.concat(this.loadRelationshipGroup(group, depth))
@@ -283,9 +283,15 @@ class DrupalJsonApiEntity {
       const lookups = Object.values(this.parseRelationshipLookups(
         this.relationshipFieldNames(group).map(k => this.data[group][k])
       ))
-      return lookups
-        .filter(l => !this.api.hasBeenTraversed(l))
-        .map(l => this.api.getEntity(l, depth + 1))
+      return lookups.map((l) => {
+        const traversal = this.api.getTraversal(l)
+        if (!traversal) {
+          return this.api.getEntity(l, depth + 1)
+        } else if (traversal instanceof Promise) {
+          return traversal
+        }
+        return Promise.resolve(traversal)
+      })
     }
     return []
   }

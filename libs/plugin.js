@@ -19,7 +19,7 @@ class DrupalJsonApi {
     this.api = axios.create({
       baseURL: process.static ? (this.isGenerating ? 'http://localhost:8080/api' : '/api') : this.options.drupalUrl
     })
-    this.pending = new Set()
+    this.pending = new Map()
     this.cache = new Map()
     this.fs = false
   }
@@ -33,31 +33,33 @@ class DrupalJsonApi {
     if (this.isCached(endpoint)) {
       return Promise.resolve(this.getCached(endpoint))
     }
-    this.pending.add(endpoint)
-    let res = false
-    try {
-      res = await this.api.get(endpoint)
-    } catch (err) {
-      if (err.response) {
-        if (this.isEntity(err.response)) {
-          res = err.response
-        } else if (err.response.status === 403) {
-          res = apiError(403, 'Not Authorized')
-        } else if (err.response.status === 404) {
-          res = apiError(404, 'Not Found')
+    this.pending.set(endpoint, new Promise(async (resolve) => {
+      let res = false
+      try {
+        res = await this.api.get(endpoint)
+      } catch (err) {
+        if (err.response) {
+          if (this.isEntity(err.response)) {
+            res = err.response
+          } else if (err.response.status === 403) {
+            res = apiError(403, 'Not Authorized')
+          } else if (err.response.status === 404) {
+            res = apiError(404, 'Not Found')
+          } else {
+            res = apiError()
+          }
         } else {
+          console.error('bad request: ', endpoint, err)
           res = apiError()
         }
-      } else {
-        console.error('bad request: ', endpoint, err)
-        this.pending.delete(endpoint)
-        this.fromApi(endpoint)
       }
-    }
-    const d = this.isEntity(res) ? (new DrupalJsonApiEntity(this, res.data)) : res.data
-    this.setCache(endpoint, d)
+      const d = this.isEntity(res) ? (new DrupalJsonApiEntity(this, res.data)) : res.data
+      this.setCache(endpoint, d)
+      resolve(d)
+    }))
+    const entity = await this.pending.get(endpoint)
     this.pending.delete(endpoint)
-    return d
+    return entity
   }
 
   /**
@@ -65,19 +67,23 @@ class DrupalJsonApi {
    * @param {string} endpoint
    * @return {Promise}
    */
-  fromFileSystem (endpoint) {
+  async fromFileSystem (endpoint) {
+    if (this.isCached(endpoint)) {
+      return Promise.resolve(this.getCached(endpoint))
+    }
     this.fs = this.fs ? this.fs : __non_webpack_require__('fs')
-    endpoint = './dist/api' + endpoint
-    return new Promise((resolve, reject) => {
-      this.fs.readFile(endpoint, 'utf8', (err, data) => {
-        if (err) {
-          reject(err)
-        }
-        const res = JSON.parse(data)
-        const d = this.isEntity(res) ? (new DrupalJsonApiEntity(this, res)) : res
+    const fsEndpoint = './dist/api' + endpoint
+    this.pending.set(endpoint, new Promise((resolve) => {
+      this.fs.readFile(fsEndpoint, 'utf8', (err, data) => {
+        const res = err ? apiError() : {data: JSON.parse(data)}
+        const d = this.isEntity(res) ? (new DrupalJsonApiEntity(this, res.data)) : res
+        this.setCache(endpoint, d)
         resolve(d)
       })
-    })
+    }))
+    const entity = await this.pending.get(endpoint)
+    this.pending.delete(endpoint)
+    return entity
   }
 
   /**
@@ -89,7 +95,7 @@ class DrupalJsonApi {
     this.fs = this.fs ? this.fs : __non_webpack_require__('fs')
     const endpoint = `./dist/api/_slugs${this.trimSlug(lookup.slug)}.json`
     return new Promise((resolve, reject) => {
-      this.fs.readFile(endpoint, 'utf8', (err, data) => {
+      this.fs.readFile(endpoint, 'utf8', async (err, data) => {
         if (err) {
           reject(err)
         }
@@ -100,7 +106,7 @@ class DrupalJsonApi {
         lookup.uuid = d.uuid
 
         if (this.isLookupComplete(lookup)) {
-          resolve(this.getFromLocal(lookup))
+          resolve(await this.getFromLocal(lookup))
         }
         reject('unable to resolve lookup')
       })
@@ -130,8 +136,10 @@ class DrupalJsonApi {
    * @return {Promise}
    */
   getEntity (lookup, depth = Infinity) {
+    console.log(lookup)
     const result = process.static ? this.getFromLocal(lookup) : this.getFromServer(lookup)
     return result.then(async entity => {
+      // console.log('get entity is instance of DJAPIE: ', entity instanceof DrupalJsonApiEntity)
       if (entity instanceof DrupalJsonApiEntity) {
         await entity.loadRelationships(depth)
       }
@@ -149,7 +157,6 @@ class DrupalJsonApi {
       if (this.isGenerating) {
         return this.fromFileSystemBySlug(lookup)
       }
-      // console.log('calling getFromLocalBySlug() because lookup is incomplete: ', lookup)
       return this.getFromLocalBySlug(lookup)
     }
     if (this.isLookupComplete(lookup)) {
@@ -189,10 +196,11 @@ class DrupalJsonApi {
         lookup.entity = entity.entity
         lookup.bundle = entity.bundle
         lookup.uuid = entity.uuid
-        // console.log('getFromLocalBySlug api response: ', lookup, entity)
+        console.log('getFromLocalBySlug api response: ', lookup, entity)
         if (this.isLookupComplete(lookup)) {
           return this.getFromLocal(lookup)
         }
+        return entity
       })
       .catch(function (err) {
         throw err
@@ -438,9 +446,9 @@ class DrupalJsonApi {
    * @param {lookup} lookup
    * @return {boolean}
    */
-  hasBeenTraversed (lookup) {
+  getTraversal (lookup) {
     const endpoint = this.endpoint(lookup)
-    return this.isCached(endpoint) || this.pending.has(endpoint)
+    return this.cache.get(endpoint) || this.pending.get(endpoint) || false
   }
 
   /**
