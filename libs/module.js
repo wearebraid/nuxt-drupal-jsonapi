@@ -187,11 +187,15 @@ async function getManifest (options) {
   // return []
   return {
     paths: [
-      '/node/1461',
-      '/mcintire.virginia.edu/student-success/support-services'
+      // '/node/1461',
+      // '/mcintire.virginia.edu/student-success/support-services',
+      '/node/321',
+      '/mcintire.virginia.edu/faculty/mfg4h'
     ],
     jsonApi: [
-      '/node/enterprise_landing_page/890c5507-d1b5-4a4b-ae0e-57f0a1af874a',
+      // '/node/enterprise_landing_page/890c5507-d1b5-4a4b-ae0e-57f0a1af874a',
+      // '/node/enterprise_person_page/9101d3a3-435d-442e-8cf6-137324833913',
+      '/node/enterprise_person_page/1486939e-1463-4bd8-8eec-bde66b517ab0',
       '/menu_link_content/enterprise-footer-navigation',
       '/menu_link_content/enterprise-footer-utility-nav',
       '/menu_link_content/enterprise-header-eyebrow-nav',
