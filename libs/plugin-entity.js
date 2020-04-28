@@ -88,7 +88,18 @@ class DrupalJsonApiEntity {
    */
   get entities () {
     if (this.isCollection() && !this._entities.length) {
-      this._entities = this.data.map(item => this.api.entify({ data: item }))
+      this._entities = this.data.map((item) => {
+        try {
+          const entity = this.api.entify({ data: item })
+          if (entity instanceof DrupalJsonApiEntity && entity.id !== 'missing' && !entity.isError) {
+            return entity
+          }
+        } catch (e) {
+          // suppressing error
+          console.error(e)
+        }
+        return false
+      }).filter(item => !!item)
     }
     return this._entities
   }
