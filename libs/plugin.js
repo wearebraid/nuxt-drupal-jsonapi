@@ -2,6 +2,7 @@ import axios from 'axios'
 import DrupalJsonApiEntity from './DrupalJsonApiEntity'
 import DrupalJsonApiTransformers from './DrupalJsonApiTransformers'
 import apiError from './DrupalJsonApiEntityError'
+import { rejects } from 'assert'
 
 class DrupalJsonApi {
   /**
@@ -20,6 +21,7 @@ class DrupalJsonApi {
     })
     this.pending = new Set()
     this.cache = new Map()
+    this.fs = false
   }
 
   /**
@@ -36,20 +38,73 @@ class DrupalJsonApi {
     try {
       res = await this.api.get(endpoint)
     } catch (err) {
-      if (this.isEntity(err.response)) {
-        res = err.response
-      } else if (err.response.status === 403) {
-        res = apiError(403, 'Not Authorized')
-      } else if (err.response.status === 404) {
-        res = apiError(404, 'Not Found')
+      if (err.response) {
+        if (this.isEntity(err.response)) {
+          res = err.response
+        } else if (err.response.status === 403) {
+          res = apiError(403, 'Not Authorized')
+        } else if (err.response.status === 404) {
+          res = apiError(404, 'Not Found')
+        } else {
+          res = apiError()
+        }
       } else {
-        res = apiError()
+        console.error('bad request: ', endpoint, err)
+        this.pending.delete(endpoint)
+        this.fromApi(endpoint)
       }
     }
     const d = this.isEntity(res) ? (new DrupalJsonApiEntity(this, res.data)) : res.data
     this.setCache(endpoint, d)
     this.pending.delete(endpoint)
     return d
+  }
+
+  /**
+   * Retrieve a given endpoint (from cache or filesystem)
+   * @param {string} endpoint
+   * @return {Promise}
+   */
+  fromFileSystem (endpoint) {
+    this.fs = this.fs ? this.fs : __non_webpack_require__('fs')
+    endpoint = './dist/api' + endpoint
+    return new Promise((resolve, reject) => {
+      this.fs.readFile(endpoint, 'utf8', (err, data) => {
+        if (err) {
+          reject(err)
+        }
+        const res = JSON.parse(data)
+        const d = this.isEntity(res) ? (new DrupalJsonApiEntity(this, res)) : res
+        resolve(d)
+      })
+    })
+  }
+
+  /**
+   * Retrieve a given endpoint (from cache or filesystem)
+   * @param {string} endpoint
+   * @return {Promise}
+   */
+  fromFileSystemBySlug (lookup) {
+    this.fs = this.fs ? this.fs : __non_webpack_require__('fs')
+    const endpoint = `./dist/api/_slugs${this.trimSlug(lookup.slug)}.json`
+    return new Promise((resolve, reject) => {
+      this.fs.readFile(endpoint, 'utf8', (err, data) => {
+        if (err) {
+          reject(err)
+        }
+        const res = JSON.parse(data)
+        const d = new DrupalJsonApiEntity(this, res)
+        lookup.entity = d.entity
+        lookup.bundle = d.bundle
+        lookup.uuid = d.uuid
+
+        if (this.isLookupComplete(lookup)) {
+          resolve(this.getFromLocal(lookup))
+        }
+        reject('unable to resolve lookup')
+      })
+    })
   }
 
   /**
@@ -91,9 +146,16 @@ class DrupalJsonApi {
    */
   getFromLocal (lookup) {
     if (lookup.slug && (!this.isLookupComplete(lookup))) {
+      if (this.isGenerating) {
+        return this.fromFileSystemBySlug(lookup)
+      }
+      // console.log('calling getFromLocalBySlug() because lookup is incomplete: ', lookup)
       return this.getFromLocalBySlug(lookup)
     }
     if (this.isLookupComplete(lookup)) {
+      if (this.isGenerating) {
+        return this.fromFileSystem(this.endpoint(lookup))
+      }
       return this.fromApi(this.endpoint(lookup))
     }
     throw new Error('Incomplete local lookup:', lookup)
@@ -126,7 +188,8 @@ class DrupalJsonApi {
       .then(entity => {
         lookup.entity = entity.entity
         lookup.bundle = entity.bundle
-        lookup.uuid = entity.guid
+        lookup.uuid = entity.uuid
+        // console.log('getFromLocalBySlug api response: ', lookup, entity)
         if (this.isLookupComplete(lookup)) {
           return this.getFromLocal(lookup)
         }
@@ -258,11 +321,13 @@ class DrupalJsonApi {
    * @return {Promise}
    */
   slug (slug, throwOnError = true) {
-    const isNodeRequest = /^\/node\/\d+$/
+    const isNodeRequest = /^\/node\/\d+\/?$/
+    // console.log('is node request: ', isNodeRequest.test(slug))
     if (this.options.aliasPrefix && !this.isGenerating && !isNodeRequest.test(slug)) {
       slug = `${this.trimSlug(this.options.aliasPrefix)}${this.trimSlug(slug)}`
     }
     const entity = this.getEntity({ entity: 'node', slug: slug })
+    // console.log('before throwOnError entity: ', slug, entity)
     return this.throwOnError ? this.throwOnError(entity) : entity
   }
 
@@ -409,7 +474,9 @@ class DrupalJsonApi {
    * @return {Promise}
    */
   async throwOnError (willBeEntity) {
+    // console.log('willBeEntity: ', willBeEntity, willBeEntity instanceof Promise)
     const entity = (willBeEntity instanceof Promise) ? await willBeEntity : willBeEntity
+    // console.log('Resolved entity promise: ', entity)
     return (entity.isError) ? this.ctx.error(entity.pageError()) : entity
   }
 }
