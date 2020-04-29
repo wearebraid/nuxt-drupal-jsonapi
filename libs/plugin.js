@@ -2,7 +2,6 @@ import axios from 'axios'
 import DrupalJsonApiEntity from './DrupalJsonApiEntity'
 import DrupalJsonApiTransformers from './DrupalJsonApiTransformers'
 import apiError from './DrupalJsonApiEntityError'
-import { rejects } from 'assert'
 import { cloneDeep } from 'lodash'
 
 class DrupalJsonApi {
