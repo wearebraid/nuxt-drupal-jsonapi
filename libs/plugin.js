@@ -3,6 +3,7 @@ import DrupalJsonApiEntity from './DrupalJsonApiEntity'
 import DrupalJsonApiTransformers from './DrupalJsonApiTransformers'
 import apiError from './DrupalJsonApiEntityError'
 import { rejects } from 'assert'
+import { cloneDeep } from 'lodash'
 
 class DrupalJsonApi {
   /**
@@ -136,7 +137,6 @@ class DrupalJsonApi {
    * @return {Promise}
    */
   getEntity (lookup, depth = Infinity) {
-    console.log(lookup)
     const result = process.static ? this.getFromLocal(lookup) : this.getFromServer(lookup)
     return result.then(async entity => {
       // console.log('get entity is instance of DJAPIE: ', entity instanceof DrupalJsonApiEntity)
@@ -196,7 +196,7 @@ class DrupalJsonApi {
         lookup.entity = entity.entity
         lookup.bundle = entity.bundle
         lookup.uuid = entity.uuid
-        console.log('getFromLocalBySlug api response: ', lookup, entity)
+        // console.log('getFromLocalBySlug api response: ', lookup, entity)
         if (this.isLookupComplete(lookup)) {
           return this.getFromLocal(lookup)
         }
@@ -460,10 +460,12 @@ class DrupalJsonApi {
       return data
     }
     if (data.__NUXT_SERIALIZED__) {
-      this.restoreCache(data.__NUXT_SERIALIZED__.cache)
-      return new DrupalJsonApiEntity(this, data.__NUXT_SERIALIZED__.res)
+      let cloneData = cloneDeep(data)
+      this.restoreCache(cloneData.__NUXT_SERIALIZED__.cache)
+      return new DrupalJsonApiEntity(this, cloneData.__NUXT_SERIALIZED__.res)
     } else if (data && data.data && (Array.isArray(data.data) || data.data.type)) {
-      return new DrupalJsonApiEntity(this, data)
+      let cloneData = cloneDeep(data)
+      return new DrupalJsonApiEntity(this, cloneData)
     }
     throw new Error ('DrupalJsonApi was unable to create an entity from given data')
   }
