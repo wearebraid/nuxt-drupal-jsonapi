@@ -288,10 +288,12 @@ class DrupalJsonApiEntity {
         if (!traversal) {
           return this.api.getEntity(l, depth + 1)
         } else if (traversal instanceof Promise) {
-          return traversal
+          // return traversal
+          return false
         }
-        return Promise.resolve(traversal)
-      })
+        // return Promise.resolve(traversal)
+        return false
+      }).filter(v => !!v)
     }
     return []
   }
