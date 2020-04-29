@@ -175,34 +175,16 @@ function startStaticServer (publicDir) {
  * @return {Promise([paths])}
  */
 async function getManifest (options) {
-  // const endpoint = `${options.drupalUrl}/api/static-manifest?_format=json${options.aliasPrefix ? '&site=' + encodeURIComponent(options.aliasPrefix) : ''}`
-  // try {
-  //   const res = await axios.get(endpoint)
-  //   if (res && res.data && Array.isArray(res.data.paths)) {
-  //     return res.data
-  //   }
-  // } catch (err) {
-  //   console.log('\x1b[31m%s\x1b[0m', 'Unable to retrieve remote site manifest. It must be accessible at: ' + endpoint)
-  // }
-  // return []
-  return {
-    paths: [
-      // '/node/1461',
-      // '/mcintire.virginia.edu/student-success/support-services',
-      '/node/321',
-      '/mcintire.virginia.edu/faculty/mfg4h'
-    ],
-    jsonApi: [
-      // '/node/enterprise_landing_page/890c5507-d1b5-4a4b-ae0e-57f0a1af874a',
-      // '/node/enterprise_person_page/9101d3a3-435d-442e-8cf6-137324833913',
-      '/node/enterprise_person_page/1486939e-1463-4bd8-8eec-bde66b517ab0',
-      '/menu_link_content/enterprise-footer-navigation',
-      '/menu_link_content/enterprise-footer-utility-nav',
-      '/menu_link_content/enterprise-header-eyebrow-nav',
-      '/menu_link_content/enterprise-primary-navigation',
-      '/menu_link_content/enterprise-quick-info-navigation'
-    ]
+  const endpoint = `${options.drupalUrl}/api/static-manifest?_format=json${options.aliasPrefix ? '&site=' + encodeURIComponent(options.aliasPrefix) : ''}`
+  try {
+    const res = await axios.get(endpoint)
+    if (res && res.data && Array.isArray(res.data.paths)) {
+      return res.data
+    }
+  } catch (err) {
+    console.log('\x1b[31m%s\x1b[0m', 'Unable to retrieve remote site manifest. It must be accessible at: ' + endpoint)
   }
+  return []
 }
 
 module.exports.meta = require('../package.json')
