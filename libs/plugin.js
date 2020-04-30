@@ -138,7 +138,6 @@ class DrupalJsonApi {
   getEntity (lookup, depth = Infinity) {
     const result = process.static ? this.getFromLocal(lookup) : this.getFromServer(lookup)
     return result.then(async entity => {
-      // console.log('get entity is instance of DJAPIE: ', entity instanceof DrupalJsonApiEntity)
       if (entity instanceof DrupalJsonApiEntity) {
         await entity.loadRelationships(depth)
       }
@@ -195,7 +194,6 @@ class DrupalJsonApi {
         lookup.entity = entity.entity
         lookup.bundle = entity.bundle
         lookup.uuid = entity.uuid
-        // console.log('getFromLocalBySlug api response: ', lookup, entity)
         if (this.isLookupComplete(lookup)) {
           return this.getFromLocal(lookup)
         }
@@ -329,12 +327,10 @@ class DrupalJsonApi {
    */
   slug (slug, throwOnError = true) {
     const isNodeRequest = /^\/node\/\d+\/?$/
-    // console.log('is node request: ', isNodeRequest.test(slug))
     if (this.options.aliasPrefix && !this.isGenerating && !isNodeRequest.test(slug)) {
       slug = `${this.trimSlug(this.options.aliasPrefix)}${this.trimSlug(slug)}`
     }
     const entity = this.getEntity({ entity: 'node', slug: slug })
-    // console.log('before throwOnError entity: ', slug, entity)
     return this.throwOnError ? this.throwOnError(entity) : entity
   }
 
@@ -483,9 +479,7 @@ class DrupalJsonApi {
    * @return {Promise}
    */
   async throwOnError (willBeEntity) {
-    // console.log('willBeEntity: ', willBeEntity, willBeEntity instanceof Promise)
     const entity = (willBeEntity instanceof Promise) ? await willBeEntity : willBeEntity
-    // console.log('Resolved entity promise: ', entity)
     return (entity.isError) ? this.ctx.error(entity.pageError()) : entity
   }
 }
