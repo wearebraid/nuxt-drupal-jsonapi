@@ -44,13 +44,13 @@ module.exports = function NuxtDrupalJsonApi (moduleOptions) {
     options: options
   })
 
-  // Add our drupal "entity" object as a template
+  // Add our drupal 'entity' object as a template
   this.addTemplate({
     src: path.resolve(__dirname, 'plugin-entity.js'),
     fileName: 'DrupalJsonApiEntity.js'
   })
 
-  // Adds a drupal entity "error" object
+  // Adds a drupal entity 'error' object
   this.addTemplate({
     src: path.resolve(__dirname, 'plugin-entity-error.js'),
     fileName: 'DrupalJsonApiEntityError.js'

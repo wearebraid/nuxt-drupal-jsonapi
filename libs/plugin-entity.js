@@ -88,7 +88,18 @@ class DrupalJsonApiEntity {
    */
   get entities () {
     if (this.isCollection() && !this._entities.length) {
-      this._entities = this.data.map(item => this.api.entify({ data: item }))
+      this._entities = this.data.map((item) => {
+        try {
+          const entity = this.api.entify({ data: item })
+          if (entity instanceof DrupalJsonApiEntity && entity.id !== 'missing' && !entity.isError) {
+            return entity
+          }
+        } catch (e) {
+          // suppressing error
+          console.error(e)
+        }
+        return false
+      }).filter(item => !!item)
     }
     return this._entities
   }
@@ -253,7 +264,7 @@ class DrupalJsonApiEntity {
   /**
    * Load all the sub relationships of this entity.
    */
-  async loadRelationships (depth) {
+  loadRelationships (depth) {
     return Promise.all(
       this.relationshipGroups.reduce((promises, group) => {
         return promises.concat(this.loadRelationshipGroup(group, depth))
@@ -272,9 +283,17 @@ class DrupalJsonApiEntity {
       const lookups = Object.values(this.parseRelationshipLookups(
         this.relationshipFieldNames(group).map(k => this.data[group][k])
       ))
-      return lookups
-        .filter(l => !this.api.hasBeenTraversed(l))
-        .map(l => this.api.getEntity(l, depth + 1))
+      return lookups.map((l) => {
+        const traversal = this.api.getTraversal(l)
+        if (!traversal) {
+          return this.api.getEntity(l, depth + 1)
+        } else if (traversal instanceof Promise) {
+          // return traversal
+          return false
+        }
+        // return Promise.resolve(traversal)
+        return false
+      }).filter(v => !!v)
     }
     return []
   }

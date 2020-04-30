@@ -2,6 +2,7 @@ import axios from 'axios'
 import DrupalJsonApiEntity from './DrupalJsonApiEntity'
 import DrupalJsonApiTransformers from './DrupalJsonApiTransformers'
 import apiError from './DrupalJsonApiEntityError'
+import cloneDeep from 'clone-deep'
 
 class DrupalJsonApi {
   /**
@@ -18,8 +19,9 @@ class DrupalJsonApi {
     this.api = axios.create({
       baseURL: process.static ? (this.isGenerating ? 'http://localhost:8080/api' : '/api') : this.options.drupalUrl
     })
-    this.pending = new Set()
+    this.pending = new Map()
     this.cache = new Map()
+    this.fs = false
   }
 
   /**
@@ -31,25 +33,84 @@ class DrupalJsonApi {
     if (this.isCached(endpoint)) {
       return Promise.resolve(this.getCached(endpoint))
     }
-    this.pending.add(endpoint)
-    let res = false
-    try {
-      res = await this.api.get(endpoint)
-    } catch (err) {
-      if (this.isEntity(err.response)) {
-        res = err.response
-      } else if (err.response.status === 403) {
-        res = apiError(403, 'Not Authorized')
-      } else if (err.response.status === 404) {
-        res = apiError(404, 'Not Found')
-      } else {
-        res = apiError()
+    this.pending.set(endpoint, new Promise(async (resolve) => {
+      let res = false
+      try {
+        res = await this.api.get(endpoint)
+      } catch (err) {
+        if (err.response) {
+          if (this.isEntity(err.response)) {
+            res = err.response
+          } else if (err.response.status === 403) {
+            res = apiError(403, 'Not Authorized')
+          } else if (err.response.status === 404) {
+            res = apiError(404, 'Not Found')
+          } else {
+            res = apiError()
+          }
+        } else {
+          console.error('bad request: ', endpoint, err)
+          res = apiError()
+        }
       }
-    }
-    const d = this.isEntity(res) ? (new DrupalJsonApiEntity(this, res.data)) : res.data
-    this.setCache(endpoint, d)
+      const d = this.isEntity(res) ? (new DrupalJsonApiEntity(this, res.data)) : res.data
+      this.setCache(endpoint, d)
+      resolve(d)
+    }))
+    const entity = await this.pending.get(endpoint)
     this.pending.delete(endpoint)
-    return d
+    return entity
+  }
+
+  /**
+   * Retrieve a given endpoint (from cache or filesystem)
+   * @param {string} endpoint
+   * @return {Promise}
+   */
+  async fromFileSystem (endpoint) {
+    if (this.isCached(endpoint)) {
+      return Promise.resolve(this.getCached(endpoint))
+    }
+    this.fs = this.fs ? this.fs : __non_webpack_require__('fs')
+    const fsEndpoint = './dist/api' + endpoint
+    this.pending.set(endpoint, new Promise((resolve) => {
+      this.fs.readFile(fsEndpoint, 'utf8', (err, data) => {
+        const res = err ? apiError() : {data: JSON.parse(data)}
+        const d = this.isEntity(res) ? (new DrupalJsonApiEntity(this, res.data)) : res
+        this.setCache(endpoint, d)
+        resolve(d)
+      })
+    }))
+    const entity = await this.pending.get(endpoint)
+    this.pending.delete(endpoint)
+    return entity
+  }
+
+  /**
+   * Retrieve a given endpoint (from cache or filesystem)
+   * @param {string} endpoint
+   * @return {Promise}
+   */
+  fromFileSystemBySlug (lookup) {
+    this.fs = this.fs ? this.fs : __non_webpack_require__('fs')
+    const endpoint = `./dist/api/_slugs${this.trimSlug(lookup.slug)}.json`
+    return new Promise((resolve, reject) => {
+      this.fs.readFile(endpoint, 'utf8', async (err, data) => {
+        if (err) {
+          reject(err)
+        }
+        const res = JSON.parse(data)
+        const d = new DrupalJsonApiEntity(this, res)
+        lookup.entity = d.entity
+        lookup.bundle = d.bundle
+        lookup.uuid = d.uuid
+
+        if (this.isLookupComplete(lookup)) {
+          resolve(await this.getFromLocal(lookup))
+        }
+        reject('unable to resolve lookup')
+      })
+    })
   }
 
   /**
@@ -91,9 +152,15 @@ class DrupalJsonApi {
    */
   getFromLocal (lookup) {
     if (lookup.slug && (!this.isLookupComplete(lookup))) {
+      if (this.isGenerating) {
+        return this.fromFileSystemBySlug(lookup)
+      }
       return this.getFromLocalBySlug(lookup)
     }
     if (this.isLookupComplete(lookup)) {
+      if (this.isGenerating) {
+        return this.fromFileSystem(this.endpoint(lookup))
+      }
       return this.fromApi(this.endpoint(lookup))
     }
     throw new Error('Incomplete local lookup:', lookup)
@@ -130,6 +197,7 @@ class DrupalJsonApi {
         if (this.isLookupComplete(lookup)) {
           return this.getFromLocal(lookup)
         }
+        return entity
       })
       .catch(function (err) {
         throw err
@@ -258,7 +326,7 @@ class DrupalJsonApi {
    * @return {Promise}
    */
   slug (slug, throwOnError = true) {
-    const isNodeRequest = /^\/node\/\d+$/
+    const isNodeRequest = /^\/node\/\d+\/?$/
     if (this.options.aliasPrefix && !this.isGenerating && !isNodeRequest.test(slug)) {
       slug = `${this.trimSlug(this.options.aliasPrefix)}${this.trimSlug(slug)}`
     }
@@ -373,9 +441,9 @@ class DrupalJsonApi {
    * @param {lookup} lookup
    * @return {boolean}
    */
-  hasBeenTraversed (lookup) {
+  getTraversal (lookup) {
     const endpoint = this.endpoint(lookup)
-    return this.isCached(endpoint) || this.pending.has(endpoint)
+    return this.cache.get(endpoint) || this.pending.get(endpoint) || false
   }
 
   /**
@@ -387,10 +455,12 @@ class DrupalJsonApi {
       return data
     }
     if (data.__NUXT_SERIALIZED__) {
-      this.restoreCache(data.__NUXT_SERIALIZED__.cache)
-      return new DrupalJsonApiEntity(this, data.__NUXT_SERIALIZED__.res)
+      let cloneData = cloneDeep(data)
+      this.restoreCache(cloneData.__NUXT_SERIALIZED__.cache)
+      return new DrupalJsonApiEntity(this, cloneData.__NUXT_SERIALIZED__.res)
     } else if (data && data.data && (Array.isArray(data.data) || data.data.type)) {
-      return new DrupalJsonApiEntity(this, data)
+      let cloneData = cloneDeep(data)
+      return new DrupalJsonApiEntity(this, cloneData)
     }
     throw new Error ('DrupalJsonApi was unable to create an entity from given data')
   }
