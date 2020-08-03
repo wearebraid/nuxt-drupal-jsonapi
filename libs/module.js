@@ -84,9 +84,9 @@ module.exports = function NuxtDrupalJsonApi (moduleOptions) {
  */
 function removeFromRoutes (route, options) {
   remainingRoutes = remainingRoutes.filter(r => r.route !== route)
-  if (!remainingRoutes.length) {
-    server.stop()
-  }
+  // if (!remainingRoutes.length) {
+  //   server.stop()
+  // }
 }
 
 /**
@@ -113,30 +113,30 @@ function removeAliasPrefixFromPath (data, options) {
 async function pullRemoteSite (options, { dir }, routes) {
   // Get all the routes we'll need from Drupal. This requires a Drupal module.
   const manifest = await getManifest(options)
-  console.log('\x1b[36mℹ\x1b[0m Downloading json:api.')
+  // console.log('\x1b[36mℹ\x1b[0m Downloading json:api.')
 
-  // Setup the drupal-jsonapi-extrator module to pull the remote data.
-  const spider = new Spider({ baseURL: options.drupalUrl + '/jsonapi' })
-  const extractor = new Extractor(spider, {
-    location: `${dir}/${options.staticApiDirectory}`,
-    clean: false
-  })
-  new Logger([spider, extractor], { verbosity: 2 }) // eslint-disable-line
+  // // Setup the drupal-jsonapi-extrator module to pull the remote data.
+  // const spider = new Spider({ baseURL: options.drupalUrl + '/jsonapi' })
+  // const extractor = new Extractor(spider, {
+  //   location: `${dir}/${options.staticApiDirectory}`,
+  //   clean: false
+  // })
+  // new Logger([spider, extractor], { verbosity: 2 }) // eslint-disable-line
 
-  // Start the spider adding each json:api path
-  await new Promise((resolve, reject) => {
-    spider.observe('crawl-complete', () => resolve())
-    manifest.jsonApi.map(jsonPath => {
-      try {
-        spider.crawl(jsonPath)
-      } catch (err) {
-        console.log('\x1b[31m%s\x1b[0m', 'Failed to crawl ' + jsonPath)
-        reject(err)
-      }
-    })
-  })
+  // // Start the spider adding each json:api path
+  // await new Promise((resolve, reject) => {
+  //   spider.observe('crawl-complete', () => resolve())
+  //   manifest.jsonApi.map(jsonPath => {
+  //     try {
+  //       spider.crawl(jsonPath)
+  //     } catch (err) {
+  //       console.log('\x1b[31m%s\x1b[0m', 'Failed to crawl ' + jsonPath)
+  //       reject(err)
+  //     }
+  //   })
+  // })
 
-  server = startStaticServer(dir)
+  // server = startStaticServer(dir)
   manifest.paths.map(route => {
     if (!routes.find(r => r.route === route)) {
       routes.push({ route, payload: null })

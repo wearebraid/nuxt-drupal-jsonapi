@@ -8,15 +8,15 @@ class DrupalJsonApi {
    * Initialize our api wrapper.
    * @param {context} context an instance of the nuxt context object.
    */
-  constructor (context, options) {
+  constructor(context, options) {
     this.ctx = context
     this.options = Object.assign({
       entityOptions: {},
       aliasPrefix: ''
     }, options)
-    this.isGenerating = process.static && typeof window === 'undefined'
+    console.log(this.options.drupalUrl)
     this.api = axios.create({
-      baseURL: process.static ? (this.isGenerating ? 'http://localhost:8080/api' : '/api') : this.options.drupalUrl
+      baseURL: this.options.drupalUrl
     })
     this.pending = new Set()
     this.cache = new Map()
@@ -27,7 +27,7 @@ class DrupalJsonApi {
    * @param {string} endpoint
    * @return {Promise}
    */
-  async fromApi (endpoint) {
+  async fromApi(endpoint) {
     if (this.isCached(endpoint)) {
       return Promise.resolve(this.getCached(endpoint))
     }
@@ -56,14 +56,14 @@ class DrupalJsonApi {
    * Given an axios response object, check if it is a json api entity.
    * @param {object} res
    */
-  isEntity (res) {
+  isEntity(res) {
     return !!(res && res.data && res.data.jsonapi && res.data.jsonapi.version)
   }
 
   /**
    * Get a full bundle and return the results.
    */
-  getBundle (lookup, depth = Infinity) {
+  getBundle(lookup, depth = Infinity) {
     lookup.isBundle = true
     return this.getEntity(lookup)
   }
@@ -74,8 +74,9 @@ class DrupalJsonApi {
    * @param {object} lookup
    * @return {Promise}
    */
-  getEntity (lookup, depth = Infinity) {
-    const result = process.static ? this.getFromLocal(lookup) : this.getFromServer(lookup)
+  getEntity(lookup, depth = Infinity) {
+    // const result = process.static ? this.getFromLocal(lookup) : this.getFromServer(lookup)
+    const result = this.getFromServer(lookup)
     return result.then(async entity => {
       if (entity instanceof DrupalJsonApiEntity) {
         await entity.loadRelationships(depth)
@@ -89,26 +90,27 @@ class DrupalJsonApi {
    * @param {object} lookup
    * @return {Promise}
    */
-  getFromLocal (lookup) {
-    if (lookup.slug && (!this.isLookupComplete(lookup))) {
-      return this.getFromLocalBySlug(lookup)
-    }
-    if (this.isLookupComplete(lookup)) {
-      return this.fromApi(this.endpoint(lookup))
-    }
-    throw new Error('Incomplete local lookup:', lookup)
-  }
+  // getFromLocal(lookup) {
+  //   if (lookup.slug && (!this.isLookupComplete(lookup))) {
+  //     return this.getFromLocalBySlug(lookup)
+  //   }
+  //   if (this.isLookupComplete(lookup)) {
+  //     return this.fromApi(this.endpoint(lookup))
+  //   }
+  //   throw new Error('Incomplete local lookup:', lookup)
+  // }
 
   /**
    * Fetch the requested data off the live server.
    * @param {object} lookup
    * @return {Promise}
    */
-  getFromServer (lookup) {
+  getFromServer(lookup) {
     if (lookup.slug && (!this.isLookupComplete(lookup))) {
       return this.getFromServerBySlug(lookup)
     }
     if (this.isLookupComplete(lookup)) {
+      console.log('endpoint:', this.endpoint(lookup))
       return this.fromApi(this.endpoint(lookup))
     }
     throw new Error('Requesting Drupal entities from a live server requires the uuid, entity, and bundle.')
@@ -121,20 +123,20 @@ class DrupalJsonApi {
    * @param {object} lookup
    * @return {Promise}
    */
-  getFromLocalBySlug (lookup) {
-    return this.fromApi(`/_slugs${this.trimSlug(lookup.slug)}.json`)
-      .then(entity => {
-        lookup.entity = entity.entity
-        lookup.bundle = entity.bundle
-        lookup.uuid = entity.uuid
-        if (this.isLookupComplete(lookup)) {
-          return this.getFromLocal(lookup)
-        }
-      })
-      .catch(function (err) {
-        throw err
-      })
-  }
+  // getFromLocalBySlug(lookup) {
+  //   return this.fromApi(`/_slugs${this.trimSlug(lookup.slug)}.json`)
+  //     .then(entity => {
+  //       lookup.entity = entity.entity
+  //       lookup.bundle = entity.bundle
+  //       lookup.uuid = entity.uuid
+  //       if (this.isLookupComplete(lookup)) {
+  //         return this.getFromLocal(lookup)
+  //       }
+  //     })
+  //     .catch(function (err) {
+  //       throw err
+  //     })
+  // }
 
   /**
    * If all we have is a slug and we are pulling from the server, then we need
@@ -142,7 +144,7 @@ class DrupalJsonApi {
    * @param {object} lookup
    * @return {Promise}
    */
-  getFromServerBySlug (lookup) {
+  getFromServerBySlug(lookup) {
     return this.fromApi(this.trimSlug(lookup.slug) + '?_format=json')
       .then(data => {
         if (data instanceof DrupalJsonApiEntity) {
@@ -166,7 +168,7 @@ class DrupalJsonApi {
    * @param {object} relationship
    * @return {object|Promise}
    */
-  getRelationship (relationship) {
+  getRelationship(relationship) {
     const [entity, bundle] = relationship.type.split('--')
     const lookup = { entity, bundle, uuid: relationship.id }
     return this.getCached(lookup) || this.getEntity(lookup)
@@ -178,7 +180,7 @@ class DrupalJsonApi {
    * @param {object} lookup
    * @return {boolean}
    */
-  isLookupComplete (lookup) {
+  isLookupComplete(lookup) {
     return lookup.entity && lookup.bundle && (lookup.uuid || lookup.isBundle)
   }
 
@@ -187,7 +189,7 @@ class DrupalJsonApi {
    * @param {string}
    * @return {string}
    */
-  trimSlug (path) {
+  trimSlug(path) {
     path = path.trim()
     if (path[0] !== '/') {
       path = '/' + path
@@ -202,15 +204,15 @@ class DrupalJsonApi {
    * Given a lookup return an url
    * @param {object} lookup
    */
-  endpoint (lookup) {
-    if (!process.static) {
-      return lookup.isBundle
-        ? `/jsonapi/${lookup.entity}/${lookup.bundle}`
-        : `/jsonapi/${lookup.entity}/${lookup.bundle}/${lookup.uuid}`
-    }
+  endpoint(lookup) {
+    // if (!process.static) {
     return lookup.isBundle
-      ? `/_resources/${lookup.entity}/${lookup.bundle}/index.json`
-      : `/_resources/${lookup.entity}/${lookup.bundle}/${lookup.uuid}.json`
+      ? `/jsonapi/${lookup.entity}/${lookup.bundle}`
+      : `/jsonapi/${lookup.entity}/${lookup.bundle}/${lookup.uuid}`
+    // }
+    // return lookup.isBundle
+    //   ? `/_resources/${lookup.entity}/${lookup.bundle}/index.json`
+    //   : `/_resources/${lookup.entity}/${lookup.bundle}/${lookup.uuid}.json`
   }
 
   /**
@@ -218,7 +220,7 @@ class DrupalJsonApi {
    * @param {string|int} identifier
    * @return {Promise}
    */
-  node (identifier) {
+  node(identifier) {
     return this.getEntity({ entity: 'node', identifier: identifier })
   }
 
@@ -226,7 +228,7 @@ class DrupalJsonApi {
    * Given a particular menu, return all sub-objects
    * @param {string} name machine name of the menu
    */
-  menu (name) {
+  menu(name) {
     return this.getBundle({ entity: 'menu_link_content', bundle: name })
   }
 
@@ -234,12 +236,8 @@ class DrupalJsonApi {
    * Return a pre-serialized menu (not an entity).
    * @param {string} name
    */
-  fetchMenu (name) {
+  fetchMenu(name) {
     return this.menu(name).then(entity => entity.serializable())
-  }
-
-  fauxAsync () {
-    return new Promise(resolve => setTimeout(() => resolve({ fauxAsync: 'is working' }), 100))
   }
 
   /**
@@ -247,7 +245,7 @@ class DrupalJsonApi {
    * @param {string} entity
    * @param {string} name
    */
-  bundle (entity, name) {
+  bundle(entity, name) {
     return this.getBundle({ entity: entity, name: name })
   }
 
@@ -256,11 +254,12 @@ class DrupalJsonApi {
    * @param {string|int} identifier
    * @return {Promise}
    */
-  slug (slug, throwOnError = true) {
+  slug(slug, throwOnError = true) {
     const isNodeRequest = /^\/node\/\d+$/
-    if (this.options.aliasPrefix && !this.isGenerating && !isNodeRequest.test(slug)) {
+    if (this.options.aliasPrefix && !isNodeRequest.test(slug)) {
       slug = `${this.trimSlug(this.options.aliasPrefix)}${this.trimSlug(slug)}`
     }
+    console.log('SLUG', slug)
     const entity = this.getEntity({ entity: 'node', slug: slug })
     return this.throwOnError ? this.throwOnError(entity) : entity
   }
@@ -270,7 +269,7 @@ class DrupalJsonApi {
    * @param {string|int} identifier
    * @return {Promise}
    */
-  alias (slug) {
+  alias(slug) {
     return this.slug(slug)
   }
 
@@ -279,7 +278,7 @@ class DrupalJsonApi {
    * @param {string|int} identifier
    * @return {Promise}
    */
-  term (identifier) {
+  term(identifier) {
     return this.getEntity({ entity: 'taxonomy_term', identifier: identifier })
   }
 
@@ -288,7 +287,7 @@ class DrupalJsonApi {
    * @param {string|int} identifier
    * @return {Promise}
    */
-  file (identifier) {
+  file(identifier) {
     return this.getEntity({ entity: 'file', identifier: identifier })
   }
 
@@ -297,7 +296,7 @@ class DrupalJsonApi {
    * @param {string|int} identifier
    * @return {Promise}
    */
-  media (identifier) {
+  media(identifier) {
     return this.getEntity({ entity: 'media', identifier: identifier })
   }
 
@@ -306,7 +305,7 @@ class DrupalJsonApi {
    * @param {string|int} identifier
    * @return {Promise}
    */
-  paragraph (identifier) {
+  paragraph(identifier) {
     return this.getEntity({ entity: 'paragraph', identifier: identifier })
   }
 
@@ -315,7 +314,7 @@ class DrupalJsonApi {
    * @param {string} key
    * @return {boolean}
    */
-  isCached (key) {
+  isCached(key) {
     const k = (typeof key === 'object') ? this.endpoint(key) : key
     return this.cache.has(k)
   }
@@ -323,7 +322,7 @@ class DrupalJsonApi {
   /**
    * Returns a cache value.
    */
-  getCached (key) {
+  getCached(key) {
     const k = (typeof key === 'object') ? this.endpoint(key) : key
     return this.isCached(k) ? this.cache.get(k) : false
   }
@@ -334,7 +333,7 @@ class DrupalJsonApi {
    * @param {mixed} value
    * @return {NuxtDrupalJsonApi}
    */
-  setCache (key, value) {
+  setCache(key, value) {
     this.cache.set(key, value)
     return this
   }
@@ -343,7 +342,7 @@ class DrupalJsonApi {
    * Given a plane object, merge with cache.
    * @param {object} cache
    */
-  restoreCache (cache) {
+  restoreCache(cache) {
     for (const key in cache) {
       let value = null
       try {
@@ -359,7 +358,7 @@ class DrupalJsonApi {
    * Convert the cache Map to a POJO.
    * @return {object}
    */
-  cacheToObject () {
+  cacheToObject() {
     const obj = {}
     for (let [key, value] of this.cache) {
       obj[key] = (value instanceof DrupalJsonApiEntity) ? value.toObject() : value
@@ -372,7 +371,7 @@ class DrupalJsonApi {
    * @param {lookup} lookup
    * @return {boolean}
    */
-  hasBeenTraversed (lookup) {
+  hasBeenTraversed(lookup) {
     const endpoint = this.endpoint(lookup)
     return this.isCached(endpoint) || this.pending.has(endpoint)
   }
@@ -381,7 +380,7 @@ class DrupalJsonApi {
    * Re-constitute an entity object from a json decode.
    * @param {Object} data
    */
-  entify (data) {
+  entify(data) {
     if (data instanceof DrupalJsonApiEntity) {
       return data
     }
@@ -391,14 +390,14 @@ class DrupalJsonApi {
     } else if (data && data.data && (Array.isArray(data.data) || data.data.type)) {
       return new DrupalJsonApiEntity(this, data)
     }
-    throw new Error ('DrupalJsonApi was unable to create an entity from given data')
+    throw new Error('DrupalJsonApi was unable to create an entity from given data')
   }
 
   /**
    * Pass through data to entify.
    * @param {Object} data
    */
-  toEntity (data) {
+  toEntity(data) {
     return this.entify(data)
   }
 
@@ -407,7 +406,7 @@ class DrupalJsonApi {
    * @param {Promise|entity}
    * @return {Promise}
    */
-  async throwOnError (willBeEntity) {
+  async throwOnError(willBeEntity) {
     const entity = (willBeEntity instanceof Promise) ? await willBeEntity : willBeEntity
     return (entity.isError) ? this.ctx.error(entity.pageError()) : entity
   }
@@ -417,20 +416,20 @@ class DrupalJsonApi {
  * Exposes $drupalApi prototype functions.
  * @param {object} context
  */
-export default function NuxtDrupalJsonApi (context, inject) {
+export default function NuxtDrupalJsonApi(context, inject) {
   const config = {}
   config.drupalUrl = '<%= options.drupalUrl %>'
-  <% if (options.entityOptions) { %>
-  config.entityOptions = {}
+    <% if (options.entityOptions) { %>
+      config.entityOptions = { }
     <% if (options.entityOptions.transform === false) { %>
-      config.entityOptions.transform = false
-    <% } %>
+        config.entityOptions.transform = false
+          <% } %>
   <% } %>
   <% if (options.aliasPrefix) { %>
     config.aliasPrefix = '<%= options.aliasPrefix %>'
-  <% } %>
+      <% } %>
   <% if (options.transformers) { %>
     config.transformers = DrupalJsonApiTransformers
-  <% } %>
-  inject('dapi', new DrupalJsonApi(context, config))
+      <% } %>
+        inject('dapi', new DrupalJsonApi(context, config))
 }
