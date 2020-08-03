@@ -98,9 +98,15 @@ function removeAliasPrefixFromPath (path, options) {
  * @param routes
  */
 async function pullRemoteSite (options, { dir }, routes) {
-  routes.push({ route: '/', payload: null })
   // Get all the routes we'll need from Drupal. This requires a Drupal module.
   const manifest = await getManifest(options)
+  // const manifest = {
+  //   paths: [
+  //     '/mcintire.virginia.edu/ms-accounting',
+  //     '/mcintire.virginia.edu/ms-accounting/academics',
+  //     '/mcintire.virginia.edu/ms-commerce'
+  //   ]
+  // }
 
   // server = startStaticServer(dir)
   manifest.paths.map(aliasedRoute => {

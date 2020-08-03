@@ -1,5 +1,7 @@
 # Nuxt Drupal JSON:API
 
+> ⚠️ Update: In version 1.0.0-alpha.1 and later the extractor is removed from this project with the expectation you'll use Nuxt >= 2.14 which includes it's own extractor.
+
 Nuxt Drupal JSON:API is a module for the Nuxt framework that allows for full
 static generation of a drupal site leveraging (primarily) the [now core](https://dri.es/jsonapi-lands-in-drupal-core) Drupal
 implementation of the [JSON:API](https://jsonapi.org/) specification. We'll

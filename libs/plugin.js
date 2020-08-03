@@ -48,7 +48,7 @@ class DrupalJsonApi {
             res = apiError()
           }
         } else {
-          console.error('bad request: ', endpoint, err)
+          console.error('bad request (nuxt-drupal-jsonapi): ', endpoint, err)
           res = apiError()
         }
       }
@@ -203,8 +203,8 @@ class DrupalJsonApi {
    * @param {string} name
    */
   fetchMenu (name) {
-    const menuDapi = new DrupalJsonApi(this.context, this.options)
-    return menuDapi.menu(name).then(entity => entity.serializable())
+    // const menuDapi = new DrupalJsonApi(this.context, this.options)
+    return this.menu(name).then(entity => entity.serializable())
   }
 
   /**
