@@ -43,7 +43,10 @@ class DrupalJsonApiEntity {
    * @param {string} name
    */
   get entity () {
-    return this.res.data.type.split('--')[0]
+    if (this.res && this.res.data && this.res.data.type) {
+      return this.res.data.type.split('--')[0]
+    }
+    return 'UNKNOWN'
   }
 
   /**
@@ -67,7 +70,10 @@ class DrupalJsonApiEntity {
    * @param {string} name
    */
   get bundle () {
-    return this.res.data.type.split('--')[1]
+    if (this.res && this.res.data && this.res.data.type) {
+      return this.res.data.type.split('--')[1]
+    }
+    return 'UNKNOWN'
   }
 
   /**
@@ -82,7 +88,18 @@ class DrupalJsonApiEntity {
    */
   get entities () {
     if (this.isCollection() && !this._entities.length) {
-      this._entities = this.data.map(item => this.api.entify({ data: item }))
+      this._entities = this.data.map((item) => {
+        try {
+          const entity = this.api.entify({ data: item })
+          if (entity instanceof DrupalJsonApiEntity && entity.id !== 'missing' && !entity.isError) {
+            return entity
+          }
+        } catch (e) {
+          // suppressing error
+          console.error(e)
+        }
+        return false
+      }).filter(item => !!item)
     }
     return this._entities
   }
@@ -162,11 +179,18 @@ class DrupalJsonApiEntity {
    */
   allValues (name, prefix = 'field_') {
     let fields = this.field(name, prefix)
-    if (!Array.isArray(fields) && Array.isArray(fields.data)) {
+    if (
+      fields &&
+      typeof fields === 'object' &&
+      !Array.isArray(fields) &&
+      Array.isArray(fields.data)
+    ) {
       fields = fields.data
     }
     if (Array.isArray(fields)) {
-      return fields.map((field, index) => this.getFieldValue(field)).filter(field => !!field)
+      return fields
+        .map(field => this.getFieldValue(field))
+        .filter(field => !!field && field.id !== 'missing' && !(field instanceof Promise))
     }
     return fields
   }
@@ -196,7 +220,7 @@ class DrupalJsonApiEntity {
         // @todo worth discussing this shorthand, but it seems like most devs
         // would not understand the internal entity structure for the entity
         // library and this creates a much more usable theming api.
-        return relationship.isError ? false : relationship.value('field_reusable_paragraph').value('paragraphs')
+        return relationship.isError ? false : relationship.value('reusable_paragraph').value('paragraphs', '')
       }
       return relationship.isError ? false : relationship
     }
@@ -240,7 +264,7 @@ class DrupalJsonApiEntity {
   /**
    * Load all the sub relationships of this entity.
    */
-  async loadRelationships (depth) {
+  loadRelationships (depth) {
     return Promise.all(
       this.relationshipGroups.reduce((promises, group) => {
         return promises.concat(this.loadRelationshipGroup(group, depth))
@@ -259,9 +283,17 @@ class DrupalJsonApiEntity {
       const lookups = Object.values(this.parseRelationshipLookups(
         this.relationshipFieldNames(group).map(k => this.data[group][k])
       ))
-      return lookups
-        .filter(l => !this.api.hasBeenTraversed(l))
-        .map(l => this.api.getEntity(l, depth + 1))
+      return lookups.map((l) => {
+        const traversal = this.api.getTraversal(l)
+        if (!traversal) {
+          return this.api.getEntity(l, depth + 1)
+        } else if (traversal instanceof Promise) {
+          // return traversal
+          return false
+        }
+        // return Promise.resolve(traversal)
+        return false
+      }).filter(v => !!v)
     }
     return []
   }
@@ -359,8 +391,9 @@ class DrupalJsonApiEntity {
   toProps (payload = false) {
     // if there is a matching transformer, run it, otherwise return the original entity
     // if there's supplied payload, include it as a secondary argument in the transformer call.
-    return this.api.options.transformers[this.bundle]
-      ? this.api.options.transformers[this.bundle](this, payload)
+    const safeBundleName = this.bundle.replace(/-/g, '_')
+    return this.api.options.transformers[safeBundleName]
+      ? this.api.options.transformers[safeBundleName](this, payload)
       : this
   }
 
@@ -387,7 +420,7 @@ class DrupalJsonApiEntity {
     const fieldTests = [
       /^field_/,
       /^drupal_internal_[a-z]?id$/,
-      /^(label|title|status|path|paragraphs|thumbnail|meta|uri|filemime|filesize|filename)$/
+      /^(label|title|status|path|paragraphs|thumbnail|meta|uri|filemime|filesize|filename|weight|link|enabled|parent)$/
     ]
     return !fields ? {} : Object.keys(fields)
       .filter(k => fieldTests.some(t => t.test(k)))

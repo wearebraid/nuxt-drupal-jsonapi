@@ -2,6 +2,7 @@ import axios from 'axios'
 import DrupalJsonApiEntity from './DrupalJsonApiEntity'
 import DrupalJsonApiTransformers from './DrupalJsonApiTransformers'
 import apiError from './DrupalJsonApiEntityError'
+import cloneDeep from 'clone-deep'
 
 class DrupalJsonApi {
   /**
@@ -14,12 +15,12 @@ class DrupalJsonApi {
       entityOptions: {},
       aliasPrefix: ''
     }, options)
-    console.log(this.options.drupalUrl)
     this.api = axios.create({
       baseURL: this.options.drupalUrl
     })
-    this.pending = new Set()
+    this.pending = new Map()
     this.cache = new Map()
+    this.fs = false
   }
 
   /**
@@ -31,25 +32,33 @@ class DrupalJsonApi {
     if (this.isCached(endpoint)) {
       return Promise.resolve(this.getCached(endpoint))
     }
-    this.pending.add(endpoint)
-    let res = false
-    try {
-      res = await this.api.get(endpoint)
-    } catch (err) {
-      if (this.isEntity(err.response)) {
-        res = err.response
-      } else if (err.response.status === 403) {
-        res = apiError(403, 'Not Authorized')
-      } else if (err.response.status === 404) {
-        res = apiError(404, 'Not Found')
-      } else {
-        res = apiError()
+    this.pending.set(endpoint, new Promise(async (resolve) => {
+      let res = false
+      try {
+        res = await this.api.get(endpoint)
+      } catch (err) {
+        if (err.response) {
+          if (this.isEntity(err.response)) {
+            res = err.response
+          } else if (err.response.status === 403) {
+            res = apiError(403, 'Not Authorized')
+          } else if (err.response.status === 404) {
+            res = apiError(404, 'Not Found')
+          } else {
+            res = apiError()
+          }
+        } else {
+          console.error('bad request: ', endpoint, err)
+          res = apiError()
+        }
       }
-    }
-    const d = this.isEntity(res) ? (new DrupalJsonApiEntity(this, res.data)) : res.data
-    this.setCache(endpoint, d)
+      const d = this.isEntity(res) ? (new DrupalJsonApiEntity(this, res.data)) : res.data
+      this.setCache(endpoint, d)
+      resolve(d)
+    }))
+    const entity = await this.pending.get(endpoint)
     this.pending.delete(endpoint)
-    return d
+    return entity
   }
 
   /**
@@ -86,21 +95,6 @@ class DrupalJsonApi {
   }
 
   /**
-   * Fetch the requested data from the local filesystem.
-   * @param {object} lookup
-   * @return {Promise}
-   */
-  // getFromLocal(lookup) {
-  //   if (lookup.slug && (!this.isLookupComplete(lookup))) {
-  //     return this.getFromLocalBySlug(lookup)
-  //   }
-  //   if (this.isLookupComplete(lookup)) {
-  //     return this.fromApi(this.endpoint(lookup))
-  //   }
-  //   throw new Error('Incomplete local lookup:', lookup)
-  // }
-
-  /**
    * Fetch the requested data off the live server.
    * @param {object} lookup
    * @return {Promise}
@@ -110,33 +104,10 @@ class DrupalJsonApi {
       return this.getFromServerBySlug(lookup)
     }
     if (this.isLookupComplete(lookup)) {
-      console.log('endpoint:', this.endpoint(lookup))
       return this.fromApi(this.endpoint(lookup))
     }
     throw new Error('Requesting Drupal entities from a live server requires the uuid, entity, and bundle.')
   }
-
-  /**
-   * If all we have is a slug and we're local, we need to do a request to the
-   * _slugs directory to get the node.
-   *
-   * @param {object} lookup
-   * @return {Promise}
-   */
-  // getFromLocalBySlug(lookup) {
-  //   return this.fromApi(`/_slugs${this.trimSlug(lookup.slug)}.json`)
-  //     .then(entity => {
-  //       lookup.entity = entity.entity
-  //       lookup.bundle = entity.bundle
-  //       lookup.uuid = entity.uuid
-  //       if (this.isLookupComplete(lookup)) {
-  //         return this.getFromLocal(lookup)
-  //       }
-  //     })
-  //     .catch(function (err) {
-  //       throw err
-  //     })
-  // }
 
   /**
    * If all we have is a slug and we are pulling from the server, then we need
@@ -205,14 +176,9 @@ class DrupalJsonApi {
    * @param {object} lookup
    */
   endpoint(lookup) {
-    // if (!process.static) {
     return lookup.isBundle
       ? `/jsonapi/${lookup.entity}/${lookup.bundle}`
       : `/jsonapi/${lookup.entity}/${lookup.bundle}/${lookup.uuid}`
-    // }
-    // return lookup.isBundle
-    //   ? `/_resources/${lookup.entity}/${lookup.bundle}/index.json`
-    //   : `/_resources/${lookup.entity}/${lookup.bundle}/${lookup.uuid}.json`
   }
 
   /**
@@ -236,8 +202,9 @@ class DrupalJsonApi {
    * Return a pre-serialized menu (not an entity).
    * @param {string} name
    */
-  fetchMenu(name) {
-    return this.menu(name).then(entity => entity.serializable())
+  fetchMenu (name) {
+    const menuDapi = new DrupalJsonApi(this.context, this.options)
+    return menuDapi.menu(name).then(entity => entity.serializable())
   }
 
   /**
@@ -254,12 +221,11 @@ class DrupalJsonApi {
    * @param {string|int} identifier
    * @return {Promise}
    */
-  slug(slug, throwOnError = true) {
-    const isNodeRequest = /^\/node\/\d+$/
-    if (this.options.aliasPrefix && !isNodeRequest.test(slug)) {
+  slug (slug, throwOnError = true) {
+    const isNodeRequest = /^\/node\/\d+\/?$/
+    if (this.options.aliasPrefix && !this.isGenerating && !isNodeRequest.test(slug)) {
       slug = `${this.trimSlug(this.options.aliasPrefix)}${this.trimSlug(slug)}`
     }
-    console.log('SLUG', slug)
     const entity = this.getEntity({ entity: 'node', slug: slug })
     return this.throwOnError ? this.throwOnError(entity) : entity
   }
@@ -371,9 +337,9 @@ class DrupalJsonApi {
    * @param {lookup} lookup
    * @return {boolean}
    */
-  hasBeenTraversed(lookup) {
+  getTraversal (lookup) {
     const endpoint = this.endpoint(lookup)
-    return this.isCached(endpoint) || this.pending.has(endpoint)
+    return this.cache.get(endpoint) || this.pending.get(endpoint) || false
   }
 
   /**
@@ -385,10 +351,12 @@ class DrupalJsonApi {
       return data
     }
     if (data.__NUXT_SERIALIZED__) {
-      this.restoreCache(data.__NUXT_SERIALIZED__.cache)
-      return new DrupalJsonApiEntity(this, data.__NUXT_SERIALIZED__.res)
+      let cloneData = cloneDeep(data)
+      this.restoreCache(cloneData.__NUXT_SERIALIZED__.cache)
+      return new DrupalJsonApiEntity(this, cloneData.__NUXT_SERIALIZED__.res)
     } else if (data && data.data && (Array.isArray(data.data) || data.data.type)) {
-      return new DrupalJsonApiEntity(this, data)
+      let cloneData = cloneDeep(data)
+      return new DrupalJsonApiEntity(this, cloneData)
     }
     throw new Error('DrupalJsonApi was unable to create an entity from given data')
   }
