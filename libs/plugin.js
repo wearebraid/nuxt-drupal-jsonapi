@@ -223,7 +223,7 @@ class DrupalJsonApi {
    */
   slug (slug, throwOnError = true) {
     const isNodeRequest = /^\/node\/\d+\/?$/
-    if (this.options.aliasPrefix && !this.isGenerating && !isNodeRequest.test(slug)) {
+    if (this.options.aliasPrefix && !isNodeRequest.test(slug)) {
       slug = `${this.trimSlug(this.options.aliasPrefix)}${this.trimSlug(slug)}`
     }
     const entity = this.getEntity({ entity: 'node', slug: slug })
