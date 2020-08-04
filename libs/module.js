@@ -103,8 +103,9 @@ async function pullRemoteSite (options, { dir }, routes) {
 
   // server = startStaticServer(dir)
   manifest.paths.map(aliasedRoute => {
-    const route = removeAliasPrefixFromPath(aliasedRoute, options) || '/'
-    if (!routes.find(r => r.route === route)) {
+    let route = removeAliasPrefixFromPath(aliasedRoute, options)
+    route = route || '/'
+    if (!route.startsWith('/node/') && !routes.find(r => r.route === route)) {
       routes.push({ route, payload: null })
     }
   })
