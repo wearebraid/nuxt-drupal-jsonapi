@@ -120,7 +120,7 @@ async function pullRemoteSite (options, { dir }, routes) {
  * @return {Promise([paths])}
  */
 async function getManifest (options) {
-  const endpoint = `${options.drupalUrl}/api/static-manifest?_format=json${options.aliasPrefix ? '&site=' + encodeURIComponent(options.aliasPrefix) : ''}`
+  const endpoint = `${options.drupalUrl}/api/static-manifest?_format=json&time=${encodeURIComponent(Date.now())}${options.aliasPrefix ? '&site=' + encodeURIComponent(options.aliasPrefix) : ''}`
   try {
     const res = await axios.get(endpoint)
     if (res && res.data && Array.isArray(res.data.paths)) {
