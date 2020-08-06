@@ -13,7 +13,8 @@ class DrupalJsonApi {
     this.ctx = context
     this.options = Object.assign({
       entityOptions: {},
-      aliasPrefix: ''
+      aliasPrefix: '',
+      strictGenerate: false
     }, options)
     this.api = axios.create({
       baseURL: this.options.drupalUrl
@@ -48,7 +49,8 @@ class DrupalJsonApi {
             res = apiError()
           }
         } else {
-          console.error('bad request (nuxt-drupal-jsonapi): ', endpoint, err)
+          const errorMessage = `(nuxt-drupal-jsonapi) bad request: ${endpoint} ${err}`
+          console.error(errorMessage)
           res = apiError()
         }
       }
@@ -56,8 +58,16 @@ class DrupalJsonApi {
       this.setCache(endpoint, d)
       resolve(d)
     }))
+
     const entity = await this.pending.get(endpoint)
     this.pending.delete(endpoint)
+
+    // in strict generate mode any error response should terminate the process
+    if (this.options.strictGenerate && entity.res.errors && entity.res.errors.length) {
+      let error = entity.res.errors[0]
+      throw new Error(`(nuxt-drupal-jsonapi) [strictGenerate] failing due to presence of bad request: ${error.status} ${error.title}`)
+    }
+
     return entity
   }
 
@@ -387,17 +397,20 @@ class DrupalJsonApi {
 export default function NuxtDrupalJsonApi(context, inject) {
   const config = {}
   config.drupalUrl = '<%= options.drupalUrl %>'
-    <% if (options.entityOptions) { %>
-      config.entityOptions = { }
+  <% if (options.entityOptions) { %>
+    config.entityOptions = { }
     <% if (options.entityOptions.transform === false) { %>
-        config.entityOptions.transform = false
-          <% } %>
+      config.entityOptions.transform = false
+    <% } %>
   <% } %>
   <% if (options.aliasPrefix) { %>
     config.aliasPrefix = '<%= options.aliasPrefix %>'
-      <% } %>
+  <% } %>
+  <% if (options.strictGenerate) { %>
+    config.strictGenerate = <%= options.strictGenerate %>
+  <% } %>
   <% if (options.transformers) { %>
     config.transformers = DrupalJsonApiTransformers
-      <% } %>
-        inject('dapi', new DrupalJsonApi(context, config))
+  <% } %>
+  inject('dapi', new DrupalJsonApi(context, config))
 }
