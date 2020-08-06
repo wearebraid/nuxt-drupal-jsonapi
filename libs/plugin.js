@@ -49,8 +49,7 @@ class DrupalJsonApi {
             res = apiError()
           }
         } else {
-          const errorMessage = `(nuxt-drupal-jsonapi) bad request: ${endpoint} ${err}`
-          console.error(errorMessage)
+          console.error(`(nuxt-drupal-jsonapi) bad request: ${endpoint} ${err}`)
           res = apiError()
         }
       }
@@ -58,12 +57,11 @@ class DrupalJsonApi {
       this.setCache(endpoint, d)
       resolve(d)
     }))
-
     const entity = await this.pending.get(endpoint)
     this.pending.delete(endpoint)
 
     // in strict generate mode any error response should terminate the process
-    if (this.options.strictGenerate && entity.res.errors && entity.res.errors.length) {
+    if (this.options.strictGenerate && entity && entity.res && entity.res.errors && entity.res.errors.length) {
       let error = entity.res.errors[0]
       throw new Error(`(nuxt-drupal-jsonapi) [strictGenerate] failing due to presence of bad request: ${error.status} ${error.title}`)
     }
