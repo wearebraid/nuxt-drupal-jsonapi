@@ -109,7 +109,7 @@ async function pullRemoteSite (options, { dir }, routes) {
       routes.push({ route, payload: null })
     }
   })
-  remainingRoutes = cloneDeep(routes)
+  remainingRoutes = cloneDeep(routes.reverse()) // reverse routes so that most recently modified pages are generated first.
 }
 
 /**
