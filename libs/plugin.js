@@ -29,14 +29,14 @@ class DrupalJsonApi {
    * @param {string} endpoint
    * @return {Promise}
    */
-  async fromApi(endpoint, attempt = 1) {
+  async fromApi(endpoint) {
     if (this.isCached(endpoint)) {
       return Promise.resolve(this.getCached(endpoint))
     }
     this.pending.set(endpoint, new Promise(async (resolve) => {
       let res = false
       try {
-        res = await this.api.get(endpoint)
+        res = await this.makeEndpointRequest(endpoint)
       } catch (err) {
         if (err.response) {
           if (this.isEntity(err.response)) {
@@ -49,7 +49,6 @@ class DrupalJsonApi {
             res = apiError()
           }
         } else {
-          console.log(res)
           console.error(`(nuxt-drupal-jsonapi) bad request: ${endpoint} ${err}`)
           res = apiError()
         }
@@ -65,19 +64,29 @@ class DrupalJsonApi {
     if (this.options.strictGenerate && entity && entity.res && entity.res.errors && entity.res.errors.length) {
       let error = entity.res.errors[0]
       let data = entity.res.data
-
-      if (data.id === 'missing' && attempt < 20) {
-        // try again if content came back as missing
-        console.log('missing content detected, refetching. Attempt ', `${attempt + 1}/20`)
-        this.fromApi(endpoint, attempt + 1)
-      } else {
-        console.error('Failed entity response')
-        console.log('entity:', entity)
-        throw new Error(`(nuxt-drupal-jsonapi) [strictGenerate] failing due to presence of bad request: ${error.status} ${error.title}, type: ${data.type}, id: ${data.id}`)
-      }
+      throw new Error(`(nuxt-drupal-jsonapi) [strictGenerate] failing due to presence of bad request: ${error.status} ${error.title}, type: ${data.type}, id: ${data.id}`)
     }
 
     return entity
+  }
+
+  /**
+   * make endpoint request
+   * @param {string} endpoint
+   * @return {Promise}
+   */
+  async makeEndpointRequest(endpoint, attempt = 1) {
+    try {
+      const res = await this.api.get(endpoint)
+      return res
+    } catch (err) {
+      if (attempt < 20) {
+        console.log('response errors detected, refetching. Attempt ', `${attempt + 1}/20`)
+        return await this.makeEndpointRequest(endpoint, attempt + 1)
+      } else {
+        throw err
+      }
+    }
   }
 
   /**
