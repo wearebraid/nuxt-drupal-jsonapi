@@ -29,7 +29,7 @@ class DrupalJsonApi {
    * @param {string} endpoint
    * @return {Promise}
    */
-  async fromApi(endpoint) {
+  async fromApi(endpoint, attempt = 1) {
     if (this.isCached(endpoint)) {
       return Promise.resolve(this.getCached(endpoint))
     }
@@ -49,6 +49,7 @@ class DrupalJsonApi {
             res = apiError()
           }
         } else {
+          console.log(res)
           console.error(`(nuxt-drupal-jsonapi) bad request: ${endpoint} ${err}`)
           res = apiError()
         }
@@ -63,7 +64,17 @@ class DrupalJsonApi {
     // in strict generate mode any error response should terminate the process
     if (this.options.strictGenerate && entity && entity.res && entity.res.errors && entity.res.errors.length) {
       let error = entity.res.errors[0]
-      throw new Error(`(nuxt-drupal-jsonapi) [strictGenerate] failing due to presence of bad request: ${error.status} ${error.title}`)
+      let data = entity.res.data
+
+      if (data.id === 'missing' && attempt < 20) {
+        // try again if content came back as missing
+        console.log('missing content detected, refetching. Attempt ', `${attempt + 1}/20`)
+        this.fromApi(endpoint, attempt + 1)
+      } else {
+        console.error('Failed entity response')
+        console.log('entity:', entity)
+        throw new Error(`(nuxt-drupal-jsonapi) [strictGenerate] failing due to presence of bad request: ${error.status} ${error.title}, type: ${data.type}, id: ${data.id}`)
+      }
     }
 
     return entity
