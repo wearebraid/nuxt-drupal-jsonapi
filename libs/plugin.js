@@ -4,6 +4,21 @@ import DrupalJsonApiTransformers from './DrupalJsonApiTransformers'
 import apiError from './DrupalJsonApiEntityError'
 import cloneDeep from 'clone-deep'
 
+/**
+ * Module-level shared cache and pending maps. These persist across all
+ * DrupalJsonApi instances within a single Node process, allowing pages
+ * generated concurrently during `nuxt generate` (or successive SSR requests
+ * in dev) to share cached responses instead of re-fetching from Drupal.
+ */
+if (typeof process !== 'undefined') {
+  if (!process.__DAPI_SHARED_CACHE__) {
+    process.__DAPI_SHARED_CACHE__ = new Map()
+  }
+  if (!process.__DAPI_SHARED_PENDING__) {
+    process.__DAPI_SHARED_PENDING__ = new Map()
+  }
+}
+
 class DrupalJsonApi {
   /**
    * Initialize our api wrapper.
@@ -14,13 +29,14 @@ class DrupalJsonApi {
     this.options = Object.assign({
       entityOptions: {},
       aliasPrefix: '',
-      strictGenerate: false
+      strictGenerate: false,
+      useSharedCache: false
     }, options)
     this.api = axios.create({
       baseURL: this.options.drupalUrl
     })
-    this.pending = new Map()
-    this.cache = new Map()
+    this.pending = this.options.useSharedCache && process.__DAPI_SHARED_PENDING__ ? process.__DAPI_SHARED_PENDING__ : new Map()
+    this.cache = this.options.useSharedCache && process.__DAPI_SHARED_CACHE__ ? process.__DAPI_SHARED_CACHE__ : new Map()
     this.fs = false
   }
 
@@ -426,6 +442,9 @@ export default function NuxtDrupalJsonApi(context, inject) {
   <% } %>
   <% if (options.strictGenerate) { %>
     config.strictGenerate = <%= options.strictGenerate %>
+  <% } %>
+  <% if (options.useSharedCache) { %>
+    config.useSharedCache = true
   <% } %>
   <% if (options.transformers) { %>
     config.transformers = DrupalJsonApiTransformers
